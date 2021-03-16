@@ -440,7 +440,7 @@ io.on("connection", function (socket) {
                      body: JSON.stringify({ status: "Incoming", message: msg }, null, 2),
                   },
                   retry: config.CallbackAPI.RetryFailure || 3,
-                  interval: (config.CallbackAPI.IntervalFailure || 1) * 1000,
+                  interval: config.CallbackAPI.IntervalFailure || 1,
                }).catch((err) => errorLogger(err));
             }
          });
@@ -525,7 +525,7 @@ io.on("connection", function (socket) {
                body: JSON.stringify({ status: valAck[ack], message: msg }, null, 2),
             },
             retry: config.CallbackAPI.RetryFailure || 3,
-            interval: (config.CallbackAPI.IntervalFailure || 1) * 1000,
+            interval: config.CallbackAPI.IntervalFailure || 1,
          });
       } catch (error) {
          console.log(error);
