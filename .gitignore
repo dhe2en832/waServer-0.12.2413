@@ -2,6 +2,7 @@
 /backup
 /dist
 backup_wacsa.ini
+backup_wacsa_old.ini
 wacsa-error.txt
 wacsa-received.json
 wacsa-sent.json
