@@ -352,7 +352,6 @@ io.on("connection", function (socket) {
    client.on("authenticated", (session) => {
       socket.emit("authenticated");
       socket.emit("logs", "Whatsapp telah diotentikasi!");
-      // console.log("AUTHENTICATED", session);
       sessionCfg = session;
       fs.writeFile(SESSION_FILE_PATH, JSON.stringify(session), function (err) {
          if (err) {
@@ -528,7 +527,6 @@ io.on("connection", function (socket) {
             interval: config.CallbackAPI.IntervalFailure || 1,
          });
       } catch (error) {
-         console.log(error);
          errorLogger(error);
       }
    });
@@ -548,13 +546,11 @@ io.on("connection", function (socket) {
          .destroy()
          .then(() => {
             client.initialize().catch((err) => {
-               console.log(err);
                errorLogger(err);
                io.sockets.emit("fatal-error", err);
             });
          })
          .catch((err) => {
-            console.log(err);
             errorLogger(err);
          });
    });
@@ -627,7 +623,7 @@ if (!gotTheLock) {
                }
             })
             .catch((err) => {
-               console.log(err);
+               errorLogger(err);
             });
       } catch (error) {
          if (error.code === "ENOENT") {
@@ -642,7 +638,6 @@ if (!gotTheLock) {
    // Electron On Renderer Send Login Success Then Initialize WA
    ipcMain.on("login-succeed", (event, arg) => {
       client.initialize().catch((err) => {
-         console.log(err);
          errorLogger(err);
          io.sockets.emit("fatal-error", err);
       });
