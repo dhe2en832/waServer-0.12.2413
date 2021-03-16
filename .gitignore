@@ -3,7 +3,7 @@
 /dist
 backup_wacsa.ini
 backup_wacsa_old.ini
-wacsa-error.txt
+wacsa-error.log
 wacsa-received.json
 wacsa-sent.json
 wacsa-session.json
