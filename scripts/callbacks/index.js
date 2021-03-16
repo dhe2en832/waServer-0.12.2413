@@ -1,13 +1,15 @@
-const callbackAPI = ({ nodeFetch, url, options, retry }) => {
+const callbacks = ({ nodeFetch, url, options, retry, interval }) => {
    return new Promise((resolve, reject) => {
       return nodeFetch(url, options)
          .then((res) => res.json())
          .then((resJson) => resolve(resJson))
          .catch((err) => {
-            if (retry === 1) reject(err);
-            resolve(callbackAPI({ nodeFetch, url, options, retry: retry - 1 }));
+            if (retry === 0) return reject(err);
+            setTimeout(() => {
+               resolve(callbacks({ nodeFetch, url, options, retry: retry - 1 }));
+            }, interval);
          });
    });
 };
 
-export default callbackAPI;
+module.exports = { callbacks };
