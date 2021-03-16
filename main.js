@@ -434,6 +434,7 @@ io.on("connection", function (socket) {
                   body: JSON.stringify({ status: "Incoming", message: msg }),
                   headers: {
                      "Content-Type": "application/json",
+                     [config.CallbackAPI.AuthKey || undefined]: config.CallbackAPI.AuthValue || undefined,
                   },
                })
                   .then((res) => res.json())
@@ -519,6 +520,7 @@ io.on("connection", function (socket) {
          body: JSON.stringify({ status: statusMsg, message: msg }),
          headers: {
             "Content-Type": "application/json",
+            [config.CallbackAPI.AuthKey || undefined]: config.CallbackAPI.AuthValue || undefined,
          },
       })
          .then((res) => res.json())
