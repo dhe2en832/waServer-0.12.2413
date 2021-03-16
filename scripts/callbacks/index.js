@@ -7,7 +7,7 @@ const callbacks = ({ nodeFetch, url, options, retry, interval }) => {
             if (retry === 0) return reject(err);
             setTimeout(() => {
                resolve(callbacks({ nodeFetch, url, options, retry: retry - 1 }));
-            }, interval);
+            }, interval * 1000);
          });
    });
 };
