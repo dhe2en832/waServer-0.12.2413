@@ -65,10 +65,13 @@ const scriptsHome = (ipcRenderer, socket) => {
       alertDismiss(5000, "success");
    });
 
-   socket.on("disconnected", function () {
+   socket.on("disconnected_client", function () {
       $("#loading").show();
       $("#app").hide();
       $("#content").hide();
+      const disconnectedCatch = alertShow("Client Whatsapp Telah Terputus, Silahkan Scan QR Code Kembali", "danger");
+      $("#alertContainer").append(disconnectedCatch);
+      alertDismiss(15000, "danger");
    });
 
    socket.on("received_message", function (data) {
