@@ -85,7 +85,7 @@ const client = new Client({
    session: sessionCfg,
    restartOnAuthFail: true,
    takeoverOnConflict: true,
-   takeoverTimeoutMs: 60000,
+   takeoverTimeoutMs: 10000,
 });
 
 // Mutex of File Handle Script
@@ -533,8 +533,8 @@ io.on("connection", function (socket) {
 
    // WAWEBjs On Whatsapp Disconnected From Mobile Apps
    client.on("disconnected", (reason) => {
-      socket.emit("disconnected");
-      socket.emit("logs", "Whatsapp telah terputus!");
+      socket.emit("disconnected_client");
+      socket.emit("logs", "Whatsapp telah terputus! Error : " + reason);
       try {
          if (fs.existsSync(SESSION_FILE_PATH)) {
             fs.unlinkSync(SESSION_FILE_PATH);
