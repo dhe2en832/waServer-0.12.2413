@@ -334,7 +334,6 @@ io.on("connection", function (socket) {
 
    // WAWEBjs On QR Code
    client.on("qr", (qr) => {
-      console.log("QR RECEIVED", qr);
       qrcode.toDataURL(qr, (err, url) => {
          socket.emit("qr", url);
          socket.emit("logs", "QR Code diterima, Mohon discan untuk melanjutkan!");
@@ -360,7 +359,7 @@ io.on("connection", function (socket) {
    });
 
    // WAWEBjs On Auth Failure
-   client.on("auth_failure", function (session) {
+   client.on("auth_failure", function () {
       socket.emit("logs", "Otentikasi gagal, sedang memulai ulang...");
    });
 
@@ -553,6 +552,33 @@ io.on("connection", function (socket) {
          .catch((err) => {
             errorLogger(err);
          });
+   });
+
+   // WAWEBjs On Whatsapp Change State From Mobile Apps
+   client.on("change_state", (state) => {
+      console.log("STATE CHANGED", state);
+      if (state === "OPENING") {
+         socket.emit("disconnected_client");
+         socket.emit("logs", "Whatsapp telah terputus! Info : " + state);
+         try {
+            if (fs.existsSync(SESSION_FILE_PATH)) {
+               fs.unlinkSync(SESSION_FILE_PATH);
+            }
+         } catch (error) {
+            errorLogger(error);
+         }
+         client
+            .destroy()
+            .then(() => {
+               client.initialize().catch((err) => {
+                  errorLogger(err);
+                  io.sockets.emit("fatal-error", err);
+               });
+            })
+            .catch((err) => {
+               errorLogger(err);
+            });
+      }
    });
 });
 
