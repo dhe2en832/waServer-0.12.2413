@@ -19,10 +19,10 @@
       "node-fetch": "^2.6.1",
       "qrcode": "^1.4.4",
       "socket.io": "^2.4.1",
-      "whatsapp-web.js": "^1.12.5"
+      "whatsapp-web.js": "^1.12.6"
    },
    "devDependencies": {
-      "electron": "^11.3.0",
+      "electron": "^11.4.3",
       "electron-alert": "^0.1.11",
       "electron-builder": "^22.10.5",
       "electron-packager": "^15.2.0"
