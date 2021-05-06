@@ -55,7 +55,7 @@ appExpress.use(express.json());
 appExpress.use(express.urlencoded({ extended: true }));
 appExpress.use(
    fileUpload({
-      debug: true,
+      debug: process.env.NODE_ENV === "development" ? true : false,
    })
 );
 appExpress.disable("x-powered-by");
@@ -296,16 +296,15 @@ const errorLogger = async (errMsg) => {
 };
 
 // Statistic Logger Script
-const currentStats = (socket) => {
-   const statsGenerate = (socket) => {
+const currentStats = () => {
+   const statsGenerate = () => {
       const getStats = fs.readFileSync(STATS_FILE_PATH);
       const stats = JSON.parse(getStats);
-      socket.emit("received_message", stats.totalReceived);
-      socket.emit("sent_message", stats.totalSent);
+      return stats;
    };
    try {
       if (fs.existsSync(STATS_FILE_PATH)) {
-         statsGenerate(socket);
+         return statsGenerate();
       }
    } catch (error) {
       if (error.code === "ENOENT") {
@@ -313,7 +312,7 @@ const currentStats = (socket) => {
          config.FolderLog.StatisticLogFolder = rootPath;
          fs.writeFileSync(path.resolve(rootPath + "/wacsa.ini"), ini.stringify(config));
          if (fs.existsSync(STATS_FILE_PATH)) {
-            statsGenerate(socket);
+            return statsGenerate();
          }
       }
       errorLogger(error);
@@ -321,244 +320,7 @@ const currentStats = (socket) => {
 };
 
 // Attachment Save Switcher Script
-const attachmentSave = config.ServerOptions.attachment === false ? false : true;
-
-// Routes Server Script
-require("./scripts/routes/message.routes.js")(appExpress, client, MessageMedia, body, validationResult, errorLogger);
-require("./scripts/routes/log.routes")(appExpress, errorLogger, receivedFileHandle, sentFileHandle, statsFileHandle);
-require("./scripts/routes/auth.routes")(appExpress, body, validationResult);
-
-// Socket.io While Connected
-io.on("connection", function (socket) {
-   socket.emit("logs", "Sedang Menghubungkan...");
-
-   // WAWEBjs On QR Code
-   client.on("qr", (qr) => {
-      console.log("QR RECEIVED", qr);
-      qrcode.toDataURL(qr, (err, url) => {
-         socket.emit("qr", url);
-         socket.emit("logs", "QR Code diterima, Mohon discan untuk melanjutkan!");
-      });
-   });
-
-   // WAWEBjs On Ready
-   client.on("ready", () => {
-      socket.emit("ready");
-      socket.emit("info", client.info.wid.user, client.info.pushname, client.info.platform, client.info.phone.wa_version);
-      currentStats(socket);
-   });
-
-   // WAWEBjs On Authenticated
-   client.on("authenticated", (session) => {
-      socket.emit("authenticated");
-      sessionCfg = session;
-      fs.writeFile(SESSION_FILE_PATH, JSON.stringify(session), function (err) {
-         if (err) {
-            errorLogger(err);
-         }
-      });
-   });
-
-   // WAWEBjs On Auth Failure
-   client.on("auth_failure", function (session) {
-      socket.emit("logs", "Otentikasi gagal, sedang memulai ulang...");
-   });
-
-   // WAWEBjs On Message Received
-   client.on("message", async (msg) => {
-      try {
-         const media = await msg.downloadMedia();
-         let qmObj;
-         if (msg.hasQuotedMsg) {
-            const qmGet = await msg.getQuotedMessage();
-            const qmId = qmGet.id._serialized;
-            const qmtype = qmGet.type;
-            const qmFrom = qmGet.from;
-            const qmAuthor = qmGet.author;
-            const qmBody = qmGet.body;
-            const qmhasMedia = qmGet.hasMedia;
-            const qmTimestamp = qmGet.timestamp;
-            const qmMedia = await qmGet.downloadMedia();
-            qmObj = {
-               qm_hasMedia: qmhasMedia,
-               qm_base64: attachmentSave == true ? (qmhasMedia == false ? "-" : qmMedia.data) : "disabled",
-               qm_filename: attachmentSave == true ? (qmhasMedia == false ? "-" : qmMedia.filename) : "disabled",
-               qm_mimetype: attachmentSave == true ? (qmhasMedia == false ? "-" : qmMedia.mimetype) : "disabled",
-               qm_id: qmId,
-               qm_type: qmtype,
-               qm_from: qmFrom,
-               qm_author: qmAuthor,
-               qm_body: qmBody,
-               qm_timestamp: qmTimestamp,
-            };
-         }
-         const mainObj = {
-            mediaKey: msg.mediaKey || "-",
-            id: {
-               fromMe: msg.id.fromMe,
-               remote: msg.id.remote,
-               id: msg.id.id,
-               _serialized: msg.id._serialized,
-            },
-            ack: msg.ack,
-            hasMedia: msg.hasMedia,
-            body: msg.body,
-            type: msg.type,
-            timestamp: msg.timestamp,
-            from: msg.from,
-            to: msg.to,
-            author: msg.author,
-            isForwarded: msg.isForwarded,
-            isStatus: msg.isStatus,
-            broadcast: msg.broadcast,
-            fromMe: msg.fromMe,
-            hasQuotedMsg: msg.hasQuotedMsg,
-            quotedMsg: msg.hasQuotedMsg == false ? "-" : qmObj,
-            location: msg.location,
-            vCards: msg.vCards,
-            mentionedIds: msg.mentionedIds,
-            mimetype: attachmentSave == true ? (msg.hasMedia == false ? "-" : media.mimetype) : "disabled",
-            filename: attachmentSave == true ? (msg.hasMedia == false ? "-" : media.filename) : "disabled",
-            base64: attachmentSave == true ? (msg.hasMedia == false ? "-" : media.data) : "disabled",
-         };
-         await new Promise((resolve, reject) => {
-            receivedFileHandle(resolve, reject, mainObj, "post", 1);
-         }).then(async (success) => {
-            if (success) {
-               socket.emit("received_message", 1);
-               if (config.CallbackAPI.MessageIncomingEndpoint !== "") {
-                  await callbacks({
-                     nodeFetch: nodeFetch,
-                     url: config.CallbackAPI.MessageIncomingEndpoint,
-                     options: {
-                        method: "post",
-                        headers: {
-                           "Content-Type": "application/json",
-                           [config.CallbackAPI.AuthKey || undefined]: config.CallbackAPI.AuthValue || undefined,
-                        },
-                        body: JSON.stringify({ status: "Incoming", message: msg }, null, 2),
-                     },
-                     retry: config.CallbackAPI.RetryFailure || 3,
-                     interval: config.CallbackAPI.IntervalFailure || 1,
-                  }).catch((err) => errorLogger(err));
-               }
-            }
-         });
-      } catch (error) {
-         if (error.code === "ENOENT") {
-            RECEIVED_FILE_PATH = path.resolve(rootPath + "/wacsa-received.json");
-            config.FolderLog.ReceivedLogFolder = rootPath;
-            fs.writeFileSync(path.resolve(rootPath + "/wacsa.ini"), ini.stringify(config));
-         }
-         errorLogger(error);
-      }
-   });
-
-   // WAWEBjs On Before Message Sent
-   client.on("message_create", async (send_msg) => {
-      try {
-         if (send_msg.fromMe) {
-            const mainObj = {
-               mediaKey: send_msg.hasMedia == false ? "-" : send_msg.mediaKey,
-               id: {
-                  fromMe: send_msg.id.fromMe,
-                  remote: send_msg.id.remote,
-                  id: send_msg.id.id,
-                  _serialized: send_msg.id._serialized,
-               },
-               ack: send_msg.ack,
-               hasMedia: send_msg.hasMedia,
-               body: send_msg.body,
-               type: send_msg.type,
-               timestamp: send_msg.timestamp,
-               from: send_msg.from,
-               to: send_msg.to,
-               author: send_msg.author,
-               isForwarded: send_msg.isForwarded,
-               isStatus: send_msg.isStatus,
-               broadcast: send_msg.broadcast,
-               fromMe: send_msg.fromMe,
-               hasQuotedMsg: send_msg.hasQuotedMsg,
-               location: send_msg.location,
-               vCards: send_msg.vCards,
-               mentionedIds: send_msg.mentionedIds,
-            };
-
-            await new Promise((resolve, reject) => {
-               sentFileHandle(resolve, reject, mainObj, "post", 1);
-            }).then((success) => {
-               if (success) {
-                  socket.emit("sent_message", 1);
-               }
-            });
-         }
-      } catch (error) {
-         if (error.code === "ENOENT") {
-            SENT_FILE_PATH = path.resolve(rootPath + "/wacsa-sent.json");
-            config.FolderLog.SentLogFolder = rootPath;
-            fs.writeFileSync(path.resolve(rootPath + "/wacsa.ini"), ini.stringify(config));
-         }
-         errorLogger(error);
-      }
-   });
-
-   //WAWEBjs On Message Ack
-   client.on("message_ack", async (msg, ack) => {
-      try {
-         const valAck = {
-            "-1": "Error",
-            0: "Pending",
-            1: "At The Server",
-            2: "Delivered",
-            3: "Read",
-            4: "On Played",
-         };
-         if (config.CallbackAPI.MessageStatusEndpoint !== "") {
-            await callbacks({
-               nodeFetch: nodeFetch,
-               url: config.CallbackAPI.MessageStatusEndpoint,
-               options: {
-                  method: "post",
-                  headers: {
-                     "Content-Type": "application/json",
-                     [config.CallbackAPI.AuthKeyName || undefined]: config.CallbackAPI.AuthKeyValue || undefined,
-                  },
-                  body: JSON.stringify({ status: valAck[ack], message: msg }, null, 2),
-               },
-               retry: config.CallbackAPI.RetryFailure || 3,
-               interval: config.CallbackAPI.IntervalFailure || 1,
-            });
-         }
-      } catch (error) {
-         errorLogger(error);
-      }
-   });
-
-   // WAWEBjs On Whatsapp Disconnected From Mobile Apps
-   client.on("disconnected", (reason) => {
-      console.log("DISCONNECTED", reason);
-      socket.emit("disconnected_client");
-      socket.emit("logs", "Whatsapp telah terputus! Error : " + reason);
-      try {
-         if (fs.existsSync(SESSION_FILE_PATH)) {
-            fs.unlinkSync(SESSION_FILE_PATH);
-         }
-      } catch (error) {
-         errorLogger(error);
-      }
-      client
-         .destroy()
-         .then(() => {
-            client.initialize().catch((err) => {
-               errorLogger(err);
-               io.sockets.emit("fatal-error", err);
-            });
-         })
-         .catch((err) => {
-            errorLogger(err);
-         });
-   });
-});
+const attachmentSave = config.ServerOptions.attachment || true;
 
 // Electron Create JS and Prevent Double Instance
 let win = null;
@@ -585,6 +347,7 @@ if (!gotTheLock) {
                errorLogger(err);
             }
          });
+
       win = new BrowserWindow({
          width: 480,
          height: 640,
@@ -603,6 +366,304 @@ if (!gotTheLock) {
          win.webContents.send("dom-loaded", PORT);
       });
       win.focus();
+
+      // Routes Server Script
+      require("./scripts/routes/message.routes")(appExpress, client, MessageMedia, body, validationResult, errorLogger);
+      require("./scripts/routes/log.routes")(appExpress, errorLogger, receivedFileHandle, sentFileHandle, statsFileHandle);
+      require("./scripts/routes/auth.routes")(appExpress, body, validationResult);
+
+      // Socket.io While Connected
+      io.on("connection", function (socket) {
+         socket.emit("logs", "Sedang Menghubungkan...");
+
+         // WAWEBjs On QR Code
+         client.on("qr", (qr) => {
+            console.log("QR RECEIVED", qr);
+            qrcode.toDataURL(qr, (err, url) => {
+               socket.emit("qr", url);
+               socket.emit("logs", "QR Code diterima, Mohon discan untuk melanjutkan!");
+            });
+         });
+
+         // WAWEBjs On Ready
+         client.on("ready", async () => {
+            const stats = await currentStats();
+            socket.emit("info", client.info.wid.user, client.info.pushname, client.info.platform, client.info.phone.wa_version);
+            socket.emit("ready", stats);
+         });
+
+         // WAWEBjs On Authenticated
+         client.on("authenticated", (session) => {
+            socket.emit("authenticated");
+            sessionCfg = session;
+            fs.writeFile(SESSION_FILE_PATH, JSON.stringify(session), function (err) {
+               if (err) {
+                  errorLogger(err);
+               }
+            });
+         });
+
+         // WAWEBjs On Auth Failure
+         client.on("auth_failure", function (session) {
+            socket.emit("logs", "Otentikasi gagal, sedang memulai ulang...");
+         });
+
+         // WAWEBjs On Message Received
+         client.on("message", async (msg) => {
+            try {
+               const media = await msg.downloadMedia();
+               let qmObj;
+               if (msg.hasQuotedMsg) {
+                  const qmGet = await msg.getQuotedMessage();
+                  const qmId = qmGet.id._serialized;
+                  const qmtype = qmGet.type;
+                  const qmFrom = qmGet.from;
+                  const qmAuthor = qmGet.author;
+                  const qmBody = qmGet.body;
+                  const qmhasMedia = qmGet.hasMedia;
+                  const qmTimestamp = qmGet.timestamp;
+                  const qmMedia = await qmGet.downloadMedia();
+                  qmObj = {
+                     qm_hasMedia: qmhasMedia,
+                     qm_base64: attachmentSave == true ? (qmhasMedia == false ? "-" : qmMedia.data) : "disabled",
+                     qm_filename: attachmentSave == true ? (qmhasMedia == false ? "-" : qmMedia.filename) : "disabled",
+                     qm_mimetype: attachmentSave == true ? (qmhasMedia == false ? "-" : qmMedia.mimetype) : "disabled",
+                     qm_id: qmId,
+                     qm_type: qmtype,
+                     qm_from: qmFrom,
+                     qm_author: qmAuthor,
+                     qm_body: qmBody,
+                     qm_timestamp: qmTimestamp,
+                  };
+               }
+               const mainObj = {
+                  mediaKey: msg.mediaKey || "-",
+                  id: {
+                     fromMe: msg.id.fromMe,
+                     remote: msg.id.remote,
+                     id: msg.id.id,
+                     _serialized: msg.id._serialized,
+                  },
+                  ack: msg.ack,
+                  hasMedia: msg.hasMedia,
+                  body: msg.body,
+                  type: msg.type,
+                  timestamp: msg.timestamp,
+                  from: msg.from,
+                  to: msg.to,
+                  author: msg.author,
+                  isForwarded: msg.isForwarded,
+                  isStatus: msg.isStatus,
+                  broadcast: msg.broadcast,
+                  fromMe: msg.fromMe,
+                  hasQuotedMsg: msg.hasQuotedMsg,
+                  quotedMsg: msg.hasQuotedMsg == false ? "-" : qmObj,
+                  location: msg.location,
+                  vCards: msg.vCards,
+                  mentionedIds: msg.mentionedIds,
+                  mimetype: attachmentSave == true ? (msg.hasMedia == false ? "-" : media.mimetype) : "disabled",
+                  filename: attachmentSave == true ? (msg.hasMedia == false ? "-" : media.filename) : "disabled",
+                  base64: attachmentSave == true ? (msg.hasMedia == false ? "-" : media.data) : "disabled",
+               };
+               await new Promise((resolve, reject) => {
+                  receivedFileHandle(resolve, reject, mainObj, "post", 1);
+               }).then(async (success) => {
+                  if (success) {
+                     socket.emit("received_message", 1);
+                     if (config.CallbackAPI.MessageIncomingEndpoint !== "") {
+                        await callbacks({
+                           nodeFetch: nodeFetch,
+                           url: config.CallbackAPI.MessageIncomingEndpoint,
+                           options: {
+                              method: "post",
+                              headers: {
+                                 "Content-Type": "application/json",
+                                 [config.CallbackAPI.AuthKey || undefined]: config.CallbackAPI.AuthValue || undefined,
+                              },
+                              body: JSON.stringify({ status: "Incoming", message: msg }, null, 2),
+                           },
+                           retry: config.CallbackAPI.RetryFailure || 3,
+                           interval: config.CallbackAPI.IntervalFailure || 1,
+                        }).catch((err) => errorLogger(err));
+                     }
+                  }
+               });
+            } catch (error) {
+               if (error.code === "ENOENT") {
+                  RECEIVED_FILE_PATH = path.resolve(rootPath + "/wacsa-received.json");
+                  config.FolderLog.ReceivedLogFolder = rootPath;
+                  fs.writeFileSync(path.resolve(rootPath + "/wacsa.ini"), ini.stringify(config));
+               }
+               errorLogger(error);
+            }
+         });
+
+         // WAWEBjs On Before Message Sent
+         client.on("message_create", async (send_msg) => {
+            try {
+               if (send_msg.fromMe) {
+                  const mainObj = {
+                     mediaKey: send_msg.hasMedia == false ? "-" : send_msg.mediaKey,
+                     id: {
+                        fromMe: send_msg.id.fromMe,
+                        remote: send_msg.id.remote,
+                        id: send_msg.id.id,
+                        _serialized: send_msg.id._serialized,
+                     },
+                     ack: send_msg.ack,
+                     hasMedia: send_msg.hasMedia,
+                     body: send_msg.body,
+                     type: send_msg.type,
+                     timestamp: send_msg.timestamp,
+                     from: send_msg.from,
+                     to: send_msg.to,
+                     author: send_msg.author,
+                     isForwarded: send_msg.isForwarded,
+                     isStatus: send_msg.isStatus,
+                     broadcast: send_msg.broadcast,
+                     fromMe: send_msg.fromMe,
+                     hasQuotedMsg: send_msg.hasQuotedMsg,
+                     location: send_msg.location,
+                     vCards: send_msg.vCards,
+                     mentionedIds: send_msg.mentionedIds,
+                  };
+
+                  await new Promise((resolve, reject) => {
+                     sentFileHandle(resolve, reject, mainObj, "post", 1);
+                  }).then((success) => {
+                     if (success) {
+                        socket.emit("sent_message", 1);
+                     }
+                  });
+               }
+            } catch (error) {
+               if (error.code === "ENOENT") {
+                  SENT_FILE_PATH = path.resolve(rootPath + "/wacsa-sent.json");
+                  config.FolderLog.SentLogFolder = rootPath;
+                  fs.writeFileSync(path.resolve(rootPath + "/wacsa.ini"), ini.stringify(config));
+               }
+               errorLogger(error);
+            }
+         });
+
+         //WAWEBjs On Message Ack
+         client.on("message_ack", async (msg, ack) => {
+            try {
+               const valAck = {
+                  "-1": "Error",
+                  0: "Pending",
+                  1: "At The Server",
+                  2: "Delivered",
+                  3: "Read",
+                  4: "On Played",
+               };
+               if (config.CallbackAPI.MessageStatusEndpoint !== "") {
+                  await callbacks({
+                     nodeFetch: nodeFetch,
+                     url: config.CallbackAPI.MessageStatusEndpoint,
+                     options: {
+                        method: "post",
+                        headers: {
+                           "Content-Type": "application/json",
+                           [config.CallbackAPI.AuthKeyName || undefined]: config.CallbackAPI.AuthKeyValue || undefined,
+                        },
+                        body: JSON.stringify({ status: valAck[ack], message: msg }, null, 2),
+                     },
+                     retry: config.CallbackAPI.RetryFailure || 3,
+                     interval: config.CallbackAPI.IntervalFailure || 1,
+                  });
+               }
+            } catch (error) {
+               errorLogger(error);
+            }
+         });
+
+         // WAWEBjs On Whatsapp Disconnected From Mobile Apps
+         client.on("disconnected", (reason) => {
+            console.log("DISCONNECTED", reason);
+            socket.emit("disconnected_client");
+            socket.emit("logs", "Whatsapp telah terputus! Error : " + reason);
+            if (fs.existsSync(SESSION_FILE_PATH)) {
+               fs.unlink(SESSION_FILE_PATH, (err) => {
+                  if (err) {
+                     errorLogger(err);
+                  }
+                  client
+                     .destroy()
+                     .then(() => {
+                        client.initialize().catch((err) => {
+                           errorLogger(err);
+                           io.sockets.emit("fatal-error", err);
+                        });
+                     })
+                     .catch((err) => {
+                        errorLogger(err);
+                     });
+               });
+            }
+         });
+      });
+
+      ipcMain.on("client_disconnected", async (event, arg) => {
+         try {
+            await new Promise((resolve, reject) => {
+               statsFileHandle(resolve, reject, arg, "post", 1);
+            }).catch((err) => {
+               errorLogger(err);
+            });
+         } catch (error) {
+            if (error.code === "ENOENT") {
+               STATS_FILE_PATH = path.resolve(rootPath + "/wacsa-statistic.json");
+               config.FolderLog.StatisticLogFolder = rootPath;
+               fs.writeFileSync(path.resolve(rootPath + "/wacsa.ini"), ini.stringify(config));
+            }
+            errorLogger(error);
+         }
+      });
+
+      // Electron On Renderer Windows Closed or Reloaded
+      ipcMain.on("windows-closed", async (event, arg) => {
+         try {
+            await new Promise((resolve, reject) => {
+               statsFileHandle(resolve, reject, arg, "post", 1);
+            })
+               .then((success) => {
+                  if (success) {
+                     BrowserWindow.getAllWindows().forEach(() => {
+                        app.quit();
+                     });
+                     win = null;
+                  }
+               })
+               .catch((err) => {
+                  errorLogger(err);
+               });
+         } catch (error) {
+            if (error.code === "ENOENT") {
+               STATS_FILE_PATH = path.resolve(rootPath + "/wacsa-statistic.json");
+               config.FolderLog.StatisticLogFolder = rootPath;
+               fs.writeFileSync(path.resolve(rootPath + "/wacsa.ini"), ini.stringify(config));
+            }
+            errorLogger(error);
+         }
+      });
+
+      // Electron On Renderer Send Login Success Then Initialize WA
+      ipcMain.on("login-succeed", (event, arg) => {
+         client.initialize().catch((err) => {
+            errorLogger(err);
+            io.sockets.emit("fatal-error", err);
+         });
+      });
+
+      // Electron JS Window Closed
+      app.on("window-all-closed", function () {
+         if (process.platform !== "darwin") app.quit();
+      });
+
+      app.on("before-quit", () => {
+         process.kill(process.pid, "SIGINT");
+      });
    };
 
    // Electron JS Ready
@@ -611,48 +672,5 @@ if (!gotTheLock) {
       app.on("activate", function () {
          if (BrowserWindow.getAllWindows().length === 0) createWindow(win);
       });
-   });
-
-   // Electron On Renderer Windows Closed or Reloaded
-   ipcMain.on("windows-closed", async (event, arg) => {
-      try {
-         await new Promise((resolve, reject) => {
-            statsFileHandle(resolve, reject, arg, "post", 1);
-         })
-            .then((success) => {
-               if (success) {
-                  BrowserWindow.getAllWindows().forEach(() => {
-                     app.quit();
-                  });
-               }
-            })
-            .catch((err) => {
-               errorLogger(err);
-            });
-      } catch (error) {
-         if (error.code === "ENOENT") {
-            STATS_FILE_PATH = path.resolve(rootPath + "/wacsa-statistic.json");
-            config.FolderLog.StatisticLogFolder = rootPath;
-            fs.writeFileSync(path.resolve(rootPath + "/wacsa.ini"), ini.stringify(config));
-         }
-         errorLogger(error);
-      }
-   });
-
-   // Electron On Renderer Send Login Success Then Initialize WA
-   ipcMain.on("login-succeed", (event, arg) => {
-      client.initialize().catch((err) => {
-         errorLogger(err);
-         io.sockets.emit("fatal-error", err);
-      });
-   });
-
-   // Electron JS Window Closed
-   app.on("window-all-closed", function () {
-      if (process.platform !== "darwin") app.quit();
-   });
-
-   app.on("before-quit", () => {
-      process.kill(process.pid, "SIGINT");
    });
 }
