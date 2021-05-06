@@ -52,6 +52,8 @@ const scriptsHome = (ipcRenderer, socket) => {
       $("#app").hide();
       $("#content").show();
       $(".logs").html("");
+      $("#rev_counter").text(data.totalReceived);
+      $("#sen_counter").text(data.totalSent);
    });
 
    socket.on("authenticated", function (data) {
@@ -66,7 +68,10 @@ const scriptsHome = (ipcRenderer, socket) => {
       alertDismiss(5000, "success");
    });
 
-   socket.on("disconnected_client", function () {
+   socket.on("disconnected_client", async function () {
+      const totalRev = parseInt($("#rev_counter").text());
+      const totalSen = parseInt($("#sen_counter").text());
+      await ipcRenderer.send("client_disconnected", [totalRev, totalSen]);
       $("#rev_counter").text(0);
       $("#sen_counter").text(0);
       $("#loading").show();
