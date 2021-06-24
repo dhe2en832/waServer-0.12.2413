@@ -8,7 +8,7 @@
 	StrCmp $0 "" proceed askForUninstall
 	askForUninstall:
 		; display info message and abort
-		MessageBox MB_OK|MB_ICONEXCLAMATION "Aplikasi wacsa sudah terinstall. Mohon uninstall terlebih dahulu,$\r$\nLalu restart ulang installer.$\r$\nPastikan data log sudah dibackup ke lokasi selain dari lokasi instalasi.$\r$\n$\r$\nMohon Maaf atas ketidaknyamanan-nya."
+		MessageBox MB_OK|MB_ICONEXCLAMATION "Aplikasi wacsa sudah terinstall. Mohon uninstall terlebih dahulu,$\r$\nLalu restart ulang installer.$\r$\nPastikan data log sudah dibackup ke lokasi selain dari lokasi instalasi.$\r$\n$\r$\nMohon Maaf atas ketidaknyamanan-nya.$\r$\n$\r$\n CSA Computer"
 		Abort
 	proceed:
 !macroend
@@ -16,5 +16,5 @@
 !macro customInit
   ; check whether there is an existing installation with the old GUID in registry
 	${checkInstOldGUIDFormat}
-  StrCpy $INSTDIR "D:\IRMA\Utils\wacsa"
+  StrCpy $INSTDIR "C:\wacsa"
 !macroend
