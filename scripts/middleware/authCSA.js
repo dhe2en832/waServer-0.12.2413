@@ -1,6 +1,6 @@
 const authCSA = (req, res, next) => {
   let token = req.headers["x-access-token"];
-  const api_token = "3e0c363ff3064af03a9dd3f9f1cbb587";
+  const api_token = "46a3c0ac2e80d24b1a51a07ae6cfd8d3";
 
   if (!token) {
     return res.status(403).send({

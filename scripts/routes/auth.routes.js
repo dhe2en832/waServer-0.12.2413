@@ -10,7 +10,7 @@ module.exports = (appExpress, body, validationResult) => {
                message: "Email atau Password Masih Kosong",
             });
          } else {
-            if (req.body.email === "wa@csacomputer.com" && req.body.password === "12345") {
+            if (req.body.email === "wa@csacomputer.com" && req.body.password === "completeselular2021") {
                return res.status(200).json({
                   status: true,
                   response: "Email dan Password Cocok. Login Telah Berhasil",
