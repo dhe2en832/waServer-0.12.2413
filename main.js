@@ -1,6 +1,5 @@
 // Import Dependency
 const { app, BrowserWindow, ipcMain, dialog } = require('electron');
-const dotenv = require('dotenv');
 const ini = require('ini');
 const path = require('path');
 const fs = require('fs');
@@ -20,7 +19,6 @@ const nodeFetch = require('node-fetch');
 const { callbacks } = require('./scripts/callbacks');
 
 // Path Script
-dotenv.config();
 const rootPath =
   process.env.NODE_ENV === 'development' ? app.getAppPath() : path.dirname(app.getPath('exe'));
 const config = ini.parse(fs.readFileSync(path.resolve(rootPath + '/wacsa.ini'), 'utf-8'));
