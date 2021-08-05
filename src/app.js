@@ -1,4 +1,5 @@
 // Import Dependency
+process.env.NODE_ENV !== 'production' && require('dotenv').config();
 const { app, BrowserWindow, ipcMain, dialog } = require('electron');
 const ini = require('ini');
 const path = require('path');
@@ -11,12 +12,12 @@ const http = require('http');
 const socketIO = require('socket.io');
 const { Client, MessageMedia } = require('whatsapp-web.js');
 const qrcode = require('qrcode');
-const { randomGenerator } = require('./scripts/utils/randomGenerator');
-const { dateTimeGeneratorServer } = require('./scripts/utils/dateTimeGenerator');
+const { randomGenerator } = require('./utils/randomGenerator');
+const { dateTimeGeneratorServer } = require('./utils/dateTimeGenerator');
 const { Mutex } = require('async-mutex');
 const withTimeout = require('async-mutex').withTimeout;
 const nodeFetch = require('node-fetch');
-const { callbacks } = require('./scripts/callbacks');
+const { callbacks } = require('./main/callbacks');
 
 // Path Script
 const rootPath =
@@ -62,9 +63,6 @@ appExpress.use(
   })
 );
 appExpress.disable('x-powered-by');
-appExpress.get('/', (req, res) => {
-  res.sendFile('index.html', { root: __dirname });
-});
 const server = http.createServer(appExpress);
 const PORT = config.ServerOptions.port || 8008;
 const io = socketIO(server);
@@ -364,21 +362,21 @@ server
           frame: false,
           resizable: false,
           webPreferences: {
-            preload: path.join(__dirname, 'preload.js'),
+            preload: path.join(__dirname, '/renderer/preload.js'),
             enableRemoteModule: true,
             nodeIntegration: true,
             contextIsolation: false,
             devTools: process.env.NODE_ENV === 'development' ? true : false,
           },
         });
-        win.loadFile('index.html');
+        win.loadFile(path.join(__dirname, '/index.html'));
         win.webContents.once('dom-ready', () => {
           win.webContents.send('dom-loaded', PORT);
         });
         win.focus();
 
         // Routes Server Script
-        require('./scripts/routes/message.routes')(
+        require('./main/routes/message.routes')(
           appExpress,
           client,
           MessageMedia,
@@ -386,14 +384,14 @@ server
           validationResult,
           errorLogger
         );
-        require('./scripts/routes/log.routes')(
+        require('./main/routes/log.routes')(
           appExpress,
           errorLogger,
           receivedFileHandle,
           sentFileHandle,
           statsFileHandle
         );
-        require('./scripts/routes/auth.routes')(appExpress, body, validationResult);
+        require('./main/routes/auth.routes')(appExpress, body, validationResult);
 
         // Socket.io While Connected
         io.on('connection', function (socket) {

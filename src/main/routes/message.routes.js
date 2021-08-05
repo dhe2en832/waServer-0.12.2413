@@ -1,5 +1,5 @@
-const { authCSA } = require("../middleware/authCSA");
-const { phoneNumberFormatter } = require("../utils/phoneNumberFormatter");
+const { auth } = require("../middleware");
+const { phoneNumberFormatter } = require("../../utils/phoneNumberFormatter");
 
 module.exports = function (appExpress, client, MessageMedia, body, validationResult, errorLogger) {
    const clientState = async function () {
@@ -24,7 +24,7 @@ module.exports = function (appExpress, client, MessageMedia, body, validationRes
       next();
    });
 
-   appExpress.post("/message/send-text", [authCSA, body("number").notEmpty(), body("message").notEmpty()], async (req, res) => {
+   appExpress.post("/message/send-text", [auth, body("number").notEmpty(), body("message").notEmpty()], async (req, res) => {
       const isConnectedClient = await clientState();
       if (isConnectedClient === "CONNECTED") {
          const errors = validationResult(req).formatWith(({ msg }) => {
@@ -72,7 +72,7 @@ module.exports = function (appExpress, client, MessageMedia, body, validationRes
       }
    });
 
-   appExpress.post("/message/send-media", [authCSA, body("number").notEmpty()], async (req, res) => {
+   appExpress.post("/message/send-media", [auth, body("number").notEmpty()], async (req, res) => {
       const isConnectedClient = await clientState();
       if (isConnectedClient === "CONNECTED") {
          const errors = validationResult(req).formatWith(({ msg }) => {

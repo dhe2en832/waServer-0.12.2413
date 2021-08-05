@@ -1,7 +1,7 @@
 const { ipcRenderer } = require("electron");
 const path = require("path");
-const { home } = require("./scripts/views/home");
-const { login } = require("./scripts/views/login");
+const { home } = require("./pages/home");
+const { login } = require("./pages/login");
 const wrapperElm = document.querySelector("main");
 const alertOnlineStatus = () => {
    navigator.onLine

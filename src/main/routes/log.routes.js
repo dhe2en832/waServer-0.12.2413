@@ -1,15 +1,21 @@
-const { authCSA } = require("../middleware/authCSA");
+const { auth } = require('../middleware');
 
-module.exports = function (appExpress, errorLogger, receivedFileHandle, sentFileHandle, statsFileHandle) {
+module.exports = function (
+  appExpress,
+  errorLogger,
+  receivedFileHandle,
+  sentFileHandle,
+  statsFileHandle
+) {
   appExpress.use(function (req, res, next) {
-    res.header("Access-Control-Allow-Headers", "x-access-token, Origin, Content-Type, Accept");
+    res.header('Access-Control-Allow-Headers', 'x-access-token, Origin, Content-Type, Accept');
     next();
   });
 
-  appExpress.get("/log/received-message", [authCSA], async (req, res) => {
+  appExpress.get('/log/received-message', [auth], async (req, res) => {
     try {
       await new Promise((resolve, reject) => {
-        receivedFileHandle(resolve, reject, null, "get", 1);
+        receivedFileHandle(resolve, reject, null, 'get', 1);
       }).then((jsonData) => {
         res.status(200).json({
           status: true,
@@ -17,15 +23,15 @@ module.exports = function (appExpress, errorLogger, receivedFileHandle, sentFile
         });
       });
     } catch (error) {
-      if (error.code === "ENOENT") {
+      if (error.code === 'ENOENT') {
         res.status(404).json({
           status: false,
-          message: "Data Log Pesan Masuk Masih Kosong",
+          message: 'Data Log Pesan Masuk Masih Kosong',
         });
-      } else if (error.message === "ETIMEOUT") {
+      } else if (error.message === 'ETIMEOUT') {
         return res.status(422).json({
           status: false,
-          message: "Data Log Pesan Masuk Sedang Ada Pengaksesan",
+          message: 'Data Log Pesan Masuk Sedang Ada Pengaksesan',
         });
       } else {
         errorLogger(error);
@@ -37,10 +43,10 @@ module.exports = function (appExpress, errorLogger, receivedFileHandle, sentFile
     }
   });
 
-  appExpress.get("/log/sent-message", [authCSA], async (req, res) => {
+  appExpress.get('/log/sent-message', [auth], async (req, res) => {
     try {
       await new Promise((resolve, reject) => {
-        sentFileHandle(resolve, reject, null, "get", 1);
+        sentFileHandle(resolve, reject, null, 'get', 1);
       }).then((jsonData) => {
         res.status(200).json({
           status: true,
@@ -48,15 +54,15 @@ module.exports = function (appExpress, errorLogger, receivedFileHandle, sentFile
         });
       });
     } catch (error) {
-      if (error.code == "ENOENT") {
+      if (error.code == 'ENOENT') {
         res.status(404).json({
           status: false,
-          message: "Data Log Pesan Keluar Masih Kosong",
+          message: 'Data Log Pesan Keluar Masih Kosong',
         });
-      } else if (error.message === "ETIMEOUT") {
+      } else if (error.message === 'ETIMEOUT') {
         return res.status(422).json({
           status: false,
-          message: "Data Log Pesan Keluar Sedang Ada Pengaksesan",
+          message: 'Data Log Pesan Keluar Sedang Ada Pengaksesan',
         });
       } else {
         errorLogger(error);
@@ -68,10 +74,10 @@ module.exports = function (appExpress, errorLogger, receivedFileHandle, sentFile
     }
   });
 
-  appExpress.get("/log/statistic", [authCSA], async (req, res) => {
+  appExpress.get('/log/statistic', [auth], async (req, res) => {
     try {
       await new Promise((resolve, reject) => {
-        statsFileHandle(resolve, reject, null, "get", 1);
+        statsFileHandle(resolve, reject, null, 'get', 1);
       }).then((jsonData) => {
         res.status(200).json({
           status: true,
@@ -79,15 +85,15 @@ module.exports = function (appExpress, errorLogger, receivedFileHandle, sentFile
         });
       });
     } catch (error) {
-      if (error.code == "ENOENT") {
+      if (error.code == 'ENOENT') {
         res.status(404).json({
           status: false,
-          message: "Data Log Statistik Masih Kosong",
+          message: 'Data Log Statistik Masih Kosong',
         });
-      } else if (error.message === "ETIMEOUT") {
+      } else if (error.message === 'ETIMEOUT') {
         return res.status(422).json({
           status: false,
-          message: "Data Log Statistik Sedang Ada Pengaksesan",
+          message: 'Data Log Statistik Sedang Ada Pengaksesan',
         });
       } else {
         errorLogger(error);
