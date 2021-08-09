@@ -58,13 +58,12 @@ function waListener(
 
   waClient.on('ready', async () => {
     const stats = await statsLogger(STATS_FILE_PATH, win);
-    win.webContents.send(
-      'info',
+    win.webContents.send('info', [
       waClient.info.wid.user,
       waClient.info.pushname,
       waClient.info.platform,
-      waClient.info.phone.wa_version
-    );
+      waClient.info.phone.wa_version,
+    ]);
     win.webContents.send('ready', stats);
   });
 

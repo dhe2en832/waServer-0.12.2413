@@ -37,14 +37,14 @@ const home = (ipcRenderer, wrapperElm) => {
 
       <!-- alert -->
       <div id="alert" class="row">
-         <div class="col-md-12 text-center m-2">
+         <div class="col-md-12 text-center my-2">
             <div id="alertContainer"></div>
          </div>
       </div>
 
       <!-- content -->
       <div id="content" class="row">
-         <div class="col-md-12 m-2">
+         <div class="col-md-12 my-2">
             <h5>Koneksi</h5>
             <div class="card p-4">
                <p>Nomor Whatsapp : <span class="float-right" id="onlineNumber"></span></p>
@@ -55,7 +55,7 @@ const home = (ipcRenderer, wrapperElm) => {
                <p>Durasi : <span class="float-right" id="onlineDuration"></span></p>
             </div>
          </div>
-         <div class="col-md-12 m-2">
+         <div class="col-md-12 my-2">
             <h5>Aktivitas</h5>
             <div class="card p-4">
                <p>Pesan Masuk : <span class="float-right" id="rev_counter">0</span></p>
@@ -104,8 +104,8 @@ const home = (ipcRenderer, wrapperElm) => {
     });
 
     ipcRenderer.on('logs', (event, msg) => {
-      if (getChildElemCount > 6) setElemHTML('.logs', '');
-      else appendElem('.logs', `<p>${msg}</p>`);
+      if (getChildElemCount('.logs') > 4) setElemHTML('.logs', '');
+      appendElem('.logs', `<p>${msg}</p>`);
     });
 
     ipcRenderer.on('qr', (event, qr) => {
@@ -162,7 +162,7 @@ const home = (ipcRenderer, wrapperElm) => {
       setElemText('#sen_counter', currentSent);
     });
 
-    ipcRenderer.on('info', (event, { pNumber, pName, pPlatform, pVersion }) => {
+    ipcRenderer.on('info', (event, [pNumber, pName, pPlatform, pVersion]) => {
       setElemText('#onlineNumber', pNumber);
       setElemText('#onlineName', pName);
       setElemText('#onlinePlatform', pPlatform);
