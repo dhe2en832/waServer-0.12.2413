@@ -1,747 +1,148 @@
-// Import Dependency
-const { app, BrowserWindow, ipcMain, dialog } = require('electron');
-const ini = require('ini');
+const fs = require('path');
 const path = require('path');
-const fs = require('fs');
-const express = require('express');
-const { body, validationResult } = require('express-validator');
-const fileUpload = require('express-fileupload');
-const cors = require('cors');
-const http = require('http');
-const socketIO = require('socket.io');
-const { Client, MessageMedia } = require('whatsapp-web.js');
-const qrcode = require('qrcode');
-const { randomGenerator } = require('./utils/randomGenerator');
-const { dateTimeGeneratorServer } = require('./utils/dateTimeGenerator');
-const { Mutex } = require('async-mutex');
-const withTimeout = require('async-mutex').withTimeout;
-const nodeFetch = require('node-fetch');
-const { callbacks } = require('./main/callbacks');
-
-// Path Script
-const rootPath = app.isPackaged === false ? app.getAppPath() : path.dirname(app.getPath('exe'));
-const config = ini.parse(fs.readFileSync(path.resolve(rootPath + '/wacsa.ini'), 'utf-8'));
-const SESSION_FILE_PATH = path.resolve(rootPath + '/wacsa-session.json');
-const ERROR_FILE_PATH = path.resolve(rootPath + '/wacsa-error.log');
-let RECEIVED_FILE_PATH = path.resolve(
-  (config.FolderLog.ReceivedLogFolder || rootPath) + '/wacsa-received.json'
-);
-let SENT_FILE_PATH = path.resolve(
-  (config.FolderLog.SentLogFolder || rootPath) + '/wacsa-sent.json'
-);
-let STATS_FILE_PATH = path.resolve(
-  (config.FolderLog.StatisticLogFolder || rootPath) + '/wacsa-statistic.json'
-);
-let sessionCfg;
-if (fs.existsSync(SESSION_FILE_PATH)) {
-  sessionCfg = require(SESSION_FILE_PATH);
-}
-
-// Init Node.js Server Script
-const appExpress = express();
-const allowedDomains = config.ServerOptions.cors || '*';
-const corsOptions = {
-  origin:
-    allowedDomains === '*'
-      ? '*'
-      : function (origin, callback) {
-          if (allowedDomains.indexOf(origin) !== -1) {
-            callback(null, true);
-          } else {
-            callback(new Error('Tidak diizinkan oleh CORS'));
-          }
-        },
-};
-appExpress.use(cors(corsOptions));
-appExpress.use(express.json());
-appExpress.use(express.urlencoded({ extended: true }));
-appExpress.use(
-  fileUpload({
-    debug: app.isPackaged === false ? true : false,
-  })
-);
-appExpress.disable('x-powered-by');
-const server = http.createServer(appExpress);
-const PORT = config.ServerOptions.port || 8008;
-const io = socketIO(server);
-
-// Init WAWebJS Script
-const chromePath =
-  config.ServerOptions.chrome || 'C:/Program Files/Google/Chrome/Application/chrome.exe';
-const client = new Client({
-  puppeteer: {
-    executablePath: chromePath,
-    headless: true,
-    args: [
-      '--no-sandbox',
-      '--disable-setuid-sandbox',
-      '--disable-dev-shm-usage',
-      '--disable-accelerated-2d-canvas',
-      '--no-first-run',
-      '--no-zygote',
-      '--disable-gpu',
-    ],
-  },
-  session: sessionCfg,
-  userAgent:
-    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/89.0.4389.90 Safari/537.36',
-  restartOnAuthFail: true,
-  takeoverOnConflict: true,
-  takeoverTimeoutMs: 1000,
-});
-
-// Mutex of File Handle Script
-const maxTimerReceived = config.FileLocking.ReceivedLogRetryInterval || 1;
-const maxRetryReceived = config.FileLocking.ReceivedLogMaxRetry || 5;
-const timeRangeReceived = randomGenerator(0.1, maxTimerReceived < 1 ? 1 : maxTimerReceived) * 1000;
-const maxRetryCountReceived =
-  maxRetryReceived >= 1
-    ? maxRetryReceived % 1 === 0
-      ? maxRetryReceived
-      : Math.ceil(maxRetryReceived)
-    : 5;
-const mutexWithTimeoutReceived = withTimeout(new Mutex(), timeRangeReceived, new Error('ETIMEOUT'));
-const receivedFileHandle = (resolve, reject, data, mode, count) => {
-  mutexWithTimeoutReceived
-    .acquire()
-    .then((release) => {
-      if (mode === 'post') {
-        fs.writeFile(
-          RECEIVED_FILE_PATH,
-          JSON.stringify(data, null, 2) + ',',
-          { flag: 'a' },
-          (err) => {
-            if (err) {
-              reject(err);
-            } else {
-              resolve(true);
-            }
-            release();
-          }
-        );
-      } else {
-        fs.readFile(RECEIVED_FILE_PATH, (err, data) => {
-          if (err) {
-            reject(err);
-          } else {
-            const rawData = '[' + data.slice(0, -1) + ']';
-            const jsonData = JSON.parse(rawData);
-            resolve(jsonData);
-            if (config.BackupLog.ReceivedLogBackup === 'false') {
-              fs.unlink(RECEIVED_FILE_PATH, (err) => {
-                if (err) reject(err);
-              });
-            } else {
-              const timestamp = Date.now();
-              const FILE_BACKUP =
-                rootPath + '/backup/deleted_wacsa-received-' + timestamp + '.json';
-              fs.rename(RECEIVED_FILE_PATH, FILE_BACKUP, (err) => {
-                if (err) reject(err);
-              });
-            }
-          }
-          release();
-        });
-      }
-    })
-    .catch((error) => {
-      if (error.message == 'ETIMEOUT' && count <= maxRetryCountReceived) {
-        count++;
-        receivedFileHandle(resolve, reject, data, mode, count);
-      } else {
-        reject(error);
-      }
-    });
-};
-const maxTimerSent = config.FileLocking.SentLogRetryInterval || 1;
-const maxRetrySent = config.FileLocking.SentLogMaxRetry || 5;
-const timeRangeSent = randomGenerator(0.1, maxTimerSent < 1 ? 1 : maxTimerSent) * 1000;
-const maxRetryCountSent =
-  maxRetrySent >= 1 ? (maxRetrySent % 1 === 0 ? maxRetrySent : Math.ceil(maxRetrySent)) : 5;
-const mutexWithTimeoutSent = withTimeout(new Mutex(), timeRangeSent, new Error('ETIMEOUT'));
-const sentFileHandle = (resolve, reject, data, mode, count) => {
-  mutexWithTimeoutSent
-    .acquire()
-    .then((release) => {
-      if (mode === 'post') {
-        fs.writeFile(SENT_FILE_PATH, JSON.stringify(data, null, 2) + ',', { flag: 'a' }, (err) => {
-          if (err) {
-            reject(err);
-          } else {
-            resolve(true);
-          }
-          release();
-        });
-      } else {
-        fs.readFile(SENT_FILE_PATH, (err, data) => {
-          if (err) {
-            reject(err);
-          } else {
-            const rawData = '[' + data.slice(0, -1) + ']';
-            const jsonData = JSON.parse(rawData);
-            resolve(jsonData);
-            if (config.BackupLog.SentLogBackup === 'false') {
-              fs.unlink(SENT_FILE_PATH, (err) => {
-                if (err) reject(err);
-              });
-            } else {
-              const timestamp = Date.now();
-              const FILE_BACKUP = rootPath + '/backup/deleted_wacsa-sent-' + timestamp + '.json';
-              fs.rename(SENT_FILE_PATH, FILE_BACKUP, (err) => {
-                if (err) reject(err);
-              });
-            }
-          }
-          release();
-        });
-      }
-    })
-    .catch((error) => {
-      if (error.message == 'ETIMEOUT' && count <= maxRetryCountSent) {
-        count++;
-        sentFileHandle(resolve, reject, data, mode, count);
-      } else {
-        reject(error);
-      }
-    });
-};
-const maxTimerStats = config.FileLocking.StatisticLogRetryInterval || 1;
-const maxRetryStats = config.FileLocking.StatisticLogMaxRetry || 5;
-const timeRangeStats = randomGenerator(0.1, maxTimerStats < 1 ? 1 : maxTimerStats) * 1000;
-const maxRetryCountStats =
-  maxRetryStats >= 1 ? (maxRetryStats % 1 === 0 ? maxRetryStats : Math.ceil(maxRetryStats)) : 5;
-const mutexWithTimeoutStats = withTimeout(new Mutex(), timeRangeStats, new Error('ETIMEOUT'));
-const statsFileHandle = (resolve, reject, dataArg, mode, count) => {
-  mutexWithTimeoutStats
-    .acquire()
-    .then((release) => {
-      if (mode === 'post') {
-        if (fs.existsSync(STATS_FILE_PATH)) {
-          fs.readFile(STATS_FILE_PATH, (err, data) => {
-            if (err) {
-              reject(err);
-            } else {
-              let datas = JSON.parse(data);
-              datas.totalReceived = dataArg[0];
-              datas.totalSent = dataArg[1];
-              datas.updatedAt = dateTimeGeneratorServer();
-              datas.updatedAtUnformat = new Date();
-              fs.writeFile(STATS_FILE_PATH, JSON.stringify(datas, null, 2), (err) => {
-                if (err) {
-                  reject(err);
-                } else {
-                  resolve(true);
-                }
-              });
-            }
-            release();
-          });
-        } else {
-          const objStats = {
-            totalReceived: dataArg[0],
-            totalSent: dataArg[1],
-            createdAt: dateTimeGeneratorServer(),
-            createdAtUnformat: new Date(),
-            updatedAt: null,
-            updatedAtUnformat: null,
-          };
-          fs.writeFile(STATS_FILE_PATH, JSON.stringify(objStats, null, 2), (err) => {
-            if (err) {
-              reject(err);
-            } else {
-              resolve(true);
-            }
-            release();
-          });
-        }
-      } else {
-        fs.readFile(STATS_FILE_PATH, (err, data) => {
-          if (err) {
-            reject(err);
-          } else {
-            const jsonData = JSON.parse(data);
-            resolve(jsonData);
-            if (config.BackupLog.StatisticLogBackup === 'false') {
-              fs.unlink(STATS_FILE_PATH, (err) => {
-                if (err) reject(err);
-              });
-            } else {
-              const timestamp = Date.now();
-              const FILE_BACKUP = rootPath + '/backup/deleted_wacsa-stats-' + timestamp + '.json';
-              fs.rename(STATS_FILE_PATH, FILE_BACKUP, (err) => {
-                if (err) reject(err);
-              });
-            }
-            fs.writeFile(STATS_FILE_PATH, JSON.stringify(jsonData, null, 2), (err) => {
-              if (err) reject(err);
-              resolve();
-            });
-          }
-          release();
-        });
-      }
-    })
-    .catch((error) => {
-      if (error.message == 'ETIMEOUT' && count <= maxRetryCountStats) {
-        count++;
-        statsFileHandle(resolve, reject, dataArg, mode, count);
-      } else {
-        reject(error);
-      }
-    });
-};
-
-// Error Logger Script
-const errorLogger = async (errMsg) => {
-  const ioError = (errorInfo) => {
-    io.sockets.emit('error', errorInfo);
-  };
-  try {
-    await new Promise((resolve, reject) => {
-      const log = 'Error At ' + dateTimeGeneratorServer() + ' : ' + errMsg + '\r\n \r\n';
-      fs.writeFile(ERROR_FILE_PATH, log, { flag: 'a' }, (err) => {
-        if (err) reject(err);
-        resolve();
-      });
-    });
-  } catch (error) {
-    ioError(error);
-  }
-};
-
-// Statistic Logger Script
-const currentStats = () => {
-  const statsGenerate = () => {
-    const getStats = fs.readFileSync(STATS_FILE_PATH);
-    const stats = JSON.parse(getStats);
-    return stats;
-  };
-  try {
-    if (fs.existsSync(STATS_FILE_PATH)) {
-      return statsGenerate();
-    }
-  } catch (error) {
-    if (error.code === 'ENOENT') {
-      STATS_FILE_PATH = path.resolve(rootPath + '/wacsa-statistic.json');
-      config.FolderLog.StatisticLogFolder = rootPath;
-      fs.writeFileSync(path.resolve(rootPath + '/wacsa.ini'), ini.stringify(config));
-      if (fs.existsSync(STATS_FILE_PATH)) {
-        return statsGenerate();
-      }
-    }
-    errorLogger(error);
-  }
-};
-
-// Attachment Save Switcher Script
-const attachmentSave = config.ServerOptions.attachment || true;
-
+const ini = require('ini');
+const { app, BrowserWindow, ipcMain } = require('electron/main');
+const { config, rootPath } = require('./main/system');
+const { appExpress, SERVER, PORT } = require('./main/server');
+const { waClient, waListener } = require('./main/whatsapp');
+let { RECEIVED_FILE_PATH } = require('./main/mutex/received-file');
+let { SENT_FILE_PATH } = require('./main/mutex/sent-file');
+let { STATS_FILE_PATH } = require('./main/mutex/stats-file');
+const { receivedFileHandle } = require('./main/mutex/received-file');
+const { sentFileHandle } = require('./main/mutex/sent-file');
+const { statsFileHandle } = require('./main/mutex/stats-file');
+const authRoutes = require('./main/routes/auth.routes');
+const logRoutes = require('./main/routes/log.routes');
+const messageRoutes = require('./main/routes/message.routes');
 let win,
   createWindow = null;
-server
-  .listen(PORT, function () {
-    console.log('WACSA running on *: ' + PORT);
-    // Electron Create JS and Prevent Double Instance
-    const gotTheLock = app.requestSingleInstanceLock();
-    if (!gotTheLock) {
-      app.quit();
-    } else {
-      app.on('second-instance', () => {
-        if (win) {
-          if (win.isMinimized()) win.restore();
-          win.focus();
+
+SERVER.listen(PORT, function () {
+  console.log('WACSA running on *: ' + PORT);
+  const gotTheLock = app.requestSingleInstanceLock();
+  if (!gotTheLock) {
+    app.quit();
+  } else {
+    app.on('second-instance', () => {
+      if (win) {
+        if (win.isMinimized()) win.restore();
+        win.focus();
+      }
+    });
+
+    createWindow = (win) => {
+      win = new BrowserWindow({
+        width: 480,
+        height: 640,
+        frame: false,
+        resizable: false,
+        webPreferences: {
+          enableRemoteModule: true,
+          nodeIntegration: false,
+          contextIsolation: true,
+          devTools: app.isPackaged === false ? true : false,
+          preload: path.join(__dirname, '/renderer/preload.js'),
+        },
+      });
+      win.loadFile(path.join(__dirname, '/index.html'));
+      win.webContents.once('dom-ready', () => {
+        win.webContents.send('dom-loaded', PORT);
+      });
+      win.focus();
+
+      authRoutes(appExpress);
+      logRoutes(appExpress, receivedFileHandle, sentFileHandle, statsFileHandle, win);
+      messageRoutes(appExpress, waClient, win);
+
+      waListener(
+        RECEIVED_FILE_PATH,
+        SENT_FILE_PATH,
+        STATS_FILE_PATH,
+        receivedFileHandle,
+        sentFileHandle,
+        win
+      );
+
+      ipcMain.on('client_disconnected', async (event, arg) => {
+        try {
+          await new Promise((resolve, reject) => {
+            statsFileHandle(resolve, reject, arg, 'post', 1);
+          }).catch((error) => {
+            errorLogger(error, win);
+          });
+        } catch (error) {
+          if (error.code === 'ENOENT') {
+            STATS_FILE_PATH = path.resolve(rootPath + '/wacsa-statistic.json');
+            config.FolderLog.StatisticLogFolder = rootPath;
+            fs.writeFileSync(path.resolve(rootPath + '/wacsa.ini'), ini.stringify(config));
+          }
+          errorLogger(error, win);
         }
       });
 
-      createWindow = (win) => {
-        win = new BrowserWindow({
-          width: 480,
-          height: 640,
-          frame: false,
-          resizable: false,
-          webPreferences: {
-            preload: path.join(__dirname, '/renderer/preload.js'),
-            enableRemoteModule: true,
-            nodeIntegration: true,
-            contextIsolation: false,
-            devTools: app.isPackaged === false ? true : false,
-          },
-        });
-        win.loadFile(path.join(__dirname, '/index.html'));
-        win.webContents.once('dom-ready', () => {
-          win.webContents.send('dom-loaded', PORT);
-        });
-        win.focus();
-
-        // Routes Server Script
-        require('./main/routes/message.routes')(
-          appExpress,
-          client,
-          MessageMedia,
-          body,
-          validationResult,
-          errorLogger
-        );
-        require('./main/routes/log.routes')(
-          appExpress,
-          errorLogger,
-          receivedFileHandle,
-          sentFileHandle,
-          statsFileHandle
-        );
-        require('./main/routes/auth.routes')(appExpress, body, validationResult);
-
-        // Socket.io While Connected
-        io.on('connection', function (socket) {
-          socket.emit('logs', 'Sedang Menghubungkan...');
-
-          // WAWEBjs On QR Code
-          client.on('qr', (qr) => {
-            //console.log('QR RECEIVED', qr);
-            qrcode.toDataURL(qr, (err, url) => {
-              socket.emit('qr', url);
-              socket.emit('logs', 'QR Code diterima, Mohon discan untuk melanjutkan!');
-            });
-          });
-
-          // WAWEBjs On Ready
-          client.on('ready', async () => {
-            const stats = await currentStats();
-            socket.emit(
-              'info',
-              client.info.wid.user,
-              client.info.pushname,
-              client.info.platform,
-              client.info.phone.wa_version
-            );
-            socket.emit('ready', stats);
-          });
-
-          // WAWEBjs On Authenticated
-          client.on('authenticated', (session) => {
-            socket.emit('authenticated');
-            sessionCfg = session;
-            fs.writeFile(SESSION_FILE_PATH, JSON.stringify(session), function (err) {
-              if (err) {
-                errorLogger(err);
-              }
-            });
-          });
-
-          // WAWEBjs On Auth Failure
-          client.on('auth_failure', function (session) {
-            socket.emit('logs', 'Otentikasi gagal, sedang memulai ulang...');
-          });
-
-          // WAWEBjs On Message Received
-          client.on('message', async (msg) => {
-            try {
-              const media = await msg.downloadMedia();
-              let qmObj;
-              if (msg.hasQuotedMsg) {
-                const qmGet = await msg.getQuotedMessage();
-                const qmId = qmGet.id._serialized;
-                const qmtype = qmGet.type;
-                const qmFrom = qmGet.from;
-                const qmAuthor = qmGet.author;
-                const qmBody = qmGet.body;
-                const qmhasMedia = qmGet.hasMedia;
-                const qmTimestamp = qmGet.timestamp;
-                const qmMedia = await qmGet.downloadMedia();
-                qmObj = {
-                  qm_hasMedia: qmhasMedia,
-                  qm_base64:
-                    attachmentSave == true
-                      ? qmhasMedia == false
-                        ? '-'
-                        : qmMedia.data
-                      : 'disabled',
-                  qm_filename:
-                    attachmentSave == true
-                      ? qmhasMedia == false
-                        ? '-'
-                        : qmMedia.filename
-                      : 'disabled',
-                  qm_mimetype:
-                    attachmentSave == true
-                      ? qmhasMedia == false
-                        ? '-'
-                        : qmMedia.mimetype
-                      : 'disabled',
-                  qm_id: qmId,
-                  qm_type: qmtype,
-                  qm_from: qmFrom,
-                  qm_author: qmAuthor,
-                  qm_body: qmBody,
-                  qm_timestamp: qmTimestamp,
-                };
-              }
-              const mainObj = {
-                mediaKey: msg.mediaKey || '-',
-                id: {
-                  fromMe: msg.id.fromMe,
-                  remote: msg.id.remote,
-                  id: msg.id.id,
-                  _serialized: msg.id._serialized,
-                },
-                ack: msg.ack,
-                hasMedia: msg.hasMedia,
-                body: msg.body,
-                type: msg.type,
-                timestamp: msg.timestamp,
-                from: msg.from,
-                to: msg.to,
-                author: msg.author,
-                isForwarded: msg.isForwarded,
-                isStatus: msg.isStatus,
-                broadcast: msg.broadcast,
-                fromMe: msg.fromMe,
-                hasQuotedMsg: msg.hasQuotedMsg,
-                quotedMsg: msg.hasQuotedMsg == false ? '-' : qmObj,
-                location: msg.location,
-                vCards: msg.vCards,
-                mentionedIds: msg.mentionedIds,
-                mimetype:
-                  attachmentSave == true
-                    ? msg.hasMedia == false
-                      ? '-'
-                      : media.mimetype
-                    : 'disabled',
-                filename:
-                  attachmentSave == true
-                    ? msg.hasMedia == false
-                      ? '-'
-                      : media.filename
-                    : 'disabled',
-                base64:
-                  attachmentSave == true ? (msg.hasMedia == false ? '-' : media.data) : 'disabled',
-              };
-              await new Promise((resolve, reject) => {
-                receivedFileHandle(resolve, reject, mainObj, 'post', 1);
-              }).then(async (success) => {
-                if (success) {
-                  socket.emit('received_message', 1);
-                  if (config.CallbackAPI.MessageIncomingEndpoint !== '') {
-                    await callbacks({
-                      nodeFetch: nodeFetch,
-                      url: config.CallbackAPI.MessageIncomingEndpoint,
-                      options: {
-                        method: 'post',
-                        headers: {
-                          'Content-Type': 'application/json',
-                          [config.CallbackAPI.AuthKey || undefined]:
-                            config.CallbackAPI.AuthValue || undefined,
-                        },
-                        body: JSON.stringify({ status: 'Incoming', message: msg }, null, 2),
-                      },
-                      retry: config.CallbackAPI.RetryFailure || 3,
-                      interval: config.CallbackAPI.IntervalFailure || 1,
-                    }).catch((err) => errorLogger(err));
-                  }
-                }
-              });
-            } catch (error) {
-              if (error.code === 'ENOENT') {
-                RECEIVED_FILE_PATH = path.resolve(rootPath + '/wacsa-received.json');
-                config.FolderLog.ReceivedLogFolder = rootPath;
-                fs.writeFileSync(path.resolve(rootPath + '/wacsa.ini'), ini.stringify(config));
-              }
-              errorLogger(error);
-            }
-          });
-
-          // WAWEBjs On Before Message Sent
-          client.on('message_create', async (send_msg) => {
-            try {
-              if (send_msg.fromMe) {
-                const mainObj = {
-                  mediaKey: send_msg.hasMedia == false ? '-' : send_msg.mediaKey,
-                  id: {
-                    fromMe: send_msg.id.fromMe,
-                    remote: send_msg.id.remote,
-                    id: send_msg.id.id,
-                    _serialized: send_msg.id._serialized,
-                  },
-                  ack: send_msg.ack,
-                  hasMedia: send_msg.hasMedia,
-                  body: send_msg.body,
-                  type: send_msg.type,
-                  timestamp: send_msg.timestamp,
-                  from: send_msg.from,
-                  to: send_msg.to,
-                  author: send_msg.author,
-                  isForwarded: send_msg.isForwarded,
-                  isStatus: send_msg.isStatus,
-                  broadcast: send_msg.broadcast,
-                  fromMe: send_msg.fromMe,
-                  hasQuotedMsg: send_msg.hasQuotedMsg,
-                  location: send_msg.location,
-                  vCards: send_msg.vCards,
-                  mentionedIds: send_msg.mentionedIds,
-                };
-
-                await new Promise((resolve, reject) => {
-                  sentFileHandle(resolve, reject, mainObj, 'post', 1);
-                }).then((success) => {
-                  if (success) {
-                    socket.emit('sent_message', 1);
-                  }
+      ipcMain.on('windows-closed', async (event, arg) => {
+        try {
+          await new Promise((resolve, reject) => {
+            statsFileHandle(resolve, reject, arg, 'post', 1);
+          })
+            .then((success) => {
+              if (success) {
+                BrowserWindow.getAllWindows().forEach(() => {
+                  app.quit();
                 });
+                win = null;
+                createWindow = null;
               }
-            } catch (error) {
-              if (error.code === 'ENOENT') {
-                SENT_FILE_PATH = path.resolve(rootPath + '/wacsa-sent.json');
-                config.FolderLog.SentLogFolder = rootPath;
-                fs.writeFileSync(path.resolve(rootPath + '/wacsa.ini'), ini.stringify(config));
-              }
-              errorLogger(error);
-            }
-          });
-
-          //WAWEBjs On Message Ack
-          client.on('message_ack', async (msg, ack) => {
-            try {
-              const valAck = {
-                '-1': 'Error',
-                0: 'Pending',
-                1: 'At The Server',
-                2: 'Delivered',
-                3: 'Read',
-                4: 'On Played',
-              };
-              if (config.CallbackAPI.MessageStatusEndpoint !== '') {
-                await callbacks({
-                  nodeFetch: nodeFetch,
-                  url: config.CallbackAPI.MessageStatusEndpoint,
-                  options: {
-                    method: 'post',
-                    headers: {
-                      'Content-Type': 'application/json',
-                      [config.CallbackAPI.AuthKeyName || undefined]:
-                        config.CallbackAPI.AuthKeyValue || undefined,
-                    },
-                    body: JSON.stringify({ status: valAck[ack], message: msg }, null, 2),
-                  },
-                  retry: config.CallbackAPI.RetryFailure || 3,
-                  interval: config.CallbackAPI.IntervalFailure || 1,
-                });
-              }
-            } catch (error) {
-              errorLogger(error);
-            }
-          });
-
-          // WAWEBjs On Whatsapp Disconnected From Mobile Apps
-          client.on('disconnected', (reason) => {
-            console.log('DISCONNECTED', reason);
-            socket.emit('disconnected_client');
-            socket.emit('logs', 'Whatsapp telah terputus! Error : ' + reason);
-            if (fs.existsSync(SESSION_FILE_PATH)) {
-              fs.unlink(SESSION_FILE_PATH, (err) => {
-                if (err) {
-                  errorLogger(err);
-                }
-                client
-                  .destroy()
-                  .then(() => {
-                    client.initialize().catch((err) => {
-                      errorLogger(err);
-                      io.sockets.emit('fatal-error', err);
-                    });
-                  })
-                  .catch((err) => {
-                    errorLogger(err);
-                  });
-              });
-            }
-          });
-        });
-
-        ipcMain.on('client_disconnected', async (event, arg) => {
-          try {
-            await new Promise((resolve, reject) => {
-              statsFileHandle(resolve, reject, arg, 'post', 1);
-            }).catch((err) => {
-              errorLogger(err);
-            });
-          } catch (error) {
-            if (error.code === 'ENOENT') {
-              STATS_FILE_PATH = path.resolve(rootPath + '/wacsa-statistic.json');
-              config.FolderLog.StatisticLogFolder = rootPath;
-              fs.writeFileSync(path.resolve(rootPath + '/wacsa.ini'), ini.stringify(config));
-            }
-            errorLogger(error);
-          }
-        });
-
-        // Electron On Renderer Windows Closed or Reloaded
-        ipcMain.on('windows-closed', async (event, arg) => {
-          try {
-            await new Promise((resolve, reject) => {
-              statsFileHandle(resolve, reject, arg, 'post', 1);
             })
-              .then((success) => {
-                if (success) {
-                  BrowserWindow.getAllWindows().forEach(() => {
-                    app.quit();
-                  });
-                  win = null;
-                  createWindow = null;
-                }
-              })
-              .catch((err) => {
-                errorLogger(err);
-              });
-          } catch (error) {
-            if (error.code === 'ENOENT') {
-              STATS_FILE_PATH = path.resolve(rootPath + '/wacsa-statistic.json');
-              config.FolderLog.StatisticLogFolder = rootPath;
-              fs.writeFileSync(path.resolve(rootPath + '/wacsa.ini'), ini.stringify(config));
-            }
-            errorLogger(error);
+            .catch((error) => {
+              errorLogger(error, win);
+            });
+        } catch (error) {
+          if (error.code === 'ENOENT') {
+            STATS_FILE_PATH = path.resolve(rootPath + '/wacsa-statistic.json');
+            config.FolderLog.StatisticLogFolder = rootPath;
+            fs.writeFileSync(path.resolve(rootPath + '/wacsa.ini'), ini.stringify(config));
           }
-        });
+          errorLogger(error, win);
+        }
+      });
 
-        // Electron On Renderer Send Login Success Then Initialize WA
-        ipcMain.on('login-succeed', (event, arg) => {
-          client.initialize().catch((err) => {
-            errorLogger(err);
-            io.sockets.emit('fatal-error', err);
-          });
+      ipcMain.on('login-succeed', (event, arg) => {
+        waClient.initialize().catch((error) => {
+          errorLogger(error, win);
+          win.webContents.send('fatal-error', error);
         });
+      });
+    };
+  }
+}).on('error', (error) => {
+  if (error.code === 'EADDRINUSE') {
+    createWindow = (win) => {
+      win = new BrowserWindow({
+        width: 480,
+        height: 480,
+        frame: false,
+        resizable: false,
+        webPreferences: {
+          devTools: app.isPackaged === false ? true : false,
+        },
+      });
+      const options = {
+        type: 'warning',
+        icon: path.resolve(app.getAppPath() + '/images/icon.ico'),
+        buttons: [],
+        defaultId: 0,
+        title: 'Perhatian',
+        message: 'Aplikasi WACSA ini sudah berjalan di user lain.',
+        detail: 'Jendela akan tertutup otomatis',
       };
-    }
-  })
-  .on('error', (err) => {
-    if (err.code === 'EADDRINUSE') {
-      // Show warning dialog of apps already in use
-      createWindow = (win) => {
-        win = new BrowserWindow({
-          width: 480,
-          height: 480,
-          frame: false,
-          resizable: false,
-          webPreferences: {
-            devTools: app.isPackaged === false ? true : false,
-          },
-        });
-        const options = {
-          type: 'warning',
-          icon: path.resolve(app.getAppPath() + '/images/icon.ico'),
-          buttons: [],
-          defaultId: 0,
-          title: 'Perhatian',
-          message: 'Aplikasi WACSA ini sudah berjalan di user lain.',
-          detail: 'Jendela akan tertutup otomatis',
-        };
-        dialog.showMessageBox(null, options).then(() => app.quit());
-      };
-    } else {
-      errorLogger(err);
-    }
-  });
+      dialog.showMessageBox(null, options).then(() => app.quit());
+    };
+  } else {
+    errorLogger(error, win);
+  }
+});
 
-// Electron JS Ready
 app.whenReady().then(() => {
   createWindow(win);
   app.on('activate', function () {
@@ -749,7 +150,6 @@ app.whenReady().then(() => {
   });
 });
 
-// Electron JS Window Closed
 app.on('window-all-closed', function () {
   if (process.platform !== 'darwin') app.quit();
 });
@@ -757,5 +157,5 @@ app.on('window-all-closed', function () {
 app.on('before-quit', () => {
   win = null;
   createWindow = null;
-  process.kill(process.pid, 'SIGINT');
+  //process.kill(process.pid, 'SIGINT');
 });

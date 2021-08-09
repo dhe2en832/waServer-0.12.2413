@@ -1,6 +1,7 @@
 const config = require('../../config.json');
+const { body, validationResult } = require('express-validator');
 
-module.exports = (appExpress, body, validationResult) => {
+function authRoutes(appExpress) {
   appExpress.post(
     '/auth/login',
     [body('email').notEmpty(), body('password').notEmpty()],
@@ -35,4 +36,6 @@ module.exports = (appExpress, body, validationResult) => {
       }
     }
   );
-};
+}
+
+module.exports = authRoutes;

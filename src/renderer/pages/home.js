@@ -1,127 +1,25 @@
 const { dateTimeGeneratorClient } = require('../../utils/dateTimeGenerator');
 const { durationGenerator } = require('../../utils/durationGenerator');
 const { alertShow, alertDismiss } = require('../../utils/alertGenerator');
-const scriptsHome = (ipcRenderer, socket) => {
-  $('#loading').show();
-  $('#app').hide();
-  $('#content').hide();
+const {
+  hideElem,
+  showElem,
+  getElemText,
+  getChildElemCount,
+  setElemText,
+  setElemHTML,
+  setElemAttr,
+  appendElem,
+} = require('../../utils/stylesGenerator');
 
-  ipcRenderer.send('login-succeed');
-
-  // Reload Then Exit
-  window.addEventListener('beforeunload', () => {
-    const totalRev = parseInt($('#rev_counter').text());
-    const totalSen = parseInt($('#sen_counter').text());
-    ipcRenderer.send('windows-closed', [totalRev, totalSen]);
-  });
-
-  // Web Socket
-  socket.on('fatal-error', function (error) {
-    $('#loading').hide();
-    $('#app').hide();
-    $('#content').hide();
-    const timeout = 86400000;
-    const errMsg =
-      'UPDATE DIBUTUHKAN ATAU TERJADI ERROR : ' +
-      error +
-      '<br /> HARAP HUBUNGI CSA COMPUTER SUPPORT';
-    const errCatch = alertShow(errMsg, 'danger');
-    $('#alertContainer').append(errCatch);
-    alertDismiss(timeout, 'danger');
-  });
-
-  socket.on('error', function (error) {
-    const timeout = error.code === 'ENOENT' ? 100000 : 80000;
-    const errMsg =
-      error.code === 'ENOENT'
-        ? error.code + ' : TIDAK DITEMUKAN ENTITAS ' + error.path || ' '
-        : error.code;
-    const errCatch = alertShow(errMsg, 'danger');
-    $('#alertContainer').append(errCatch);
-    alertDismiss(timeout, 'danger');
-  });
-
-  socket.on('logs', function (msg) {
-    if ($('.logs').children().length > 6) $('.logs').html('');
-    $('.logs').append($('<li>').text(msg));
-  });
-
-  socket.on('qr', function (src) {
-    $('#qrcode').attr('src', src);
-    $('#loading').hide();
-    $('#app').show();
-    $('#content').hide();
-  });
-
-  socket.on('ready', function (data) {
-    $('#loading').hide();
-    $('#app').hide();
-    $('#content').show();
-    $('.logs').html('');
-    $('#rev_counter').text(data.totalReceived);
-    $('#sen_counter').text(data.totalSent);
-  });
-
-  socket.on('authenticated', function (data) {
-    // Clock With Date Time Generator and Duration Generator
-    window.setInterval(() => {
-      const lastTime = $('#onlineFromHidden').text();
-      const duration = durationGenerator(lastTime);
-      $('#onlineDuration').text(duration);
-    }, 1000);
-    const authCatch = alertShow('Anda telah terhubung dengan QR Code.', 'success');
-    $('#alertContainer').append(authCatch);
-    alertDismiss(5000, 'success');
-  });
-
-  socket.on('disconnected_client', async function () {
-    const totalRev = parseInt($('#rev_counter').text());
-    const totalSen = parseInt($('#sen_counter').text());
-    await ipcRenderer.send('client_disconnected', [totalRev, totalSen]);
-    $('#rev_counter').text(0);
-    $('#sen_counter').text(0);
-    $('#loading').show();
-    $('#app').hide();
-    $('#content').hide();
-    const disconnectedCatch = alertShow(
-      'Client Whatsapp Telah Terputus, Silahkan Scan QR Code Kembali',
-      'danger'
-    );
-    $('#alertContainer').append(disconnectedCatch);
-    alertDismiss(15000, 'danger');
-  });
-
-  socket.on('received_message', function (data) {
-    const currentReceived = parseInt($('#rev_counter').text()) + data;
-    $('#rev_counter').text(currentReceived);
-  });
-
-  socket.on('sent_message', function (data) {
-    const currentSent = parseInt($('#sen_counter').text()) + data;
-    $('#sen_counter').text(currentSent);
-  });
-
-  socket.on('info', function (pNumber, pName, pPlatform, pVersion) {
-    $('#onlineFrom').text();
-    $('#onlineNumber').text(pNumber);
-    $('#onlineName').text(pName);
-    $('#onlinePlatform').text(pPlatform);
-    $('#onlineVersion').text(pVersion);
-    $('#onlineFrom').text(dateTimeGeneratorClient());
-    $('#onlineFromHidden').text(new Date());
-  });
-};
-
-const home = (ipcRenderer, socket, path, wrapperElm) => {
+const home = (ipcRenderer, wrapperElm) => {
   const pageHome = `
   <div class="container-fluid">
       <!-- loading -->
       <div id="loading" class="row mt-5">
          <div class="col-12 text-center mt-5">
             <h5>Mohon Tunggu <br />Sedang Memuat QR Code...</h5>
-            <div class="spinner-grow text-primary" role="status">
-               <span class="sr-only">Loading...</span>
-            </div>
+            <div class="mt-4 spinner-grow text-primary" role="status"></div>
          </div>
       </div>
 
@@ -167,8 +65,115 @@ const home = (ipcRenderer, socket, path, wrapperElm) => {
       </div>
    </div>
    `;
+  const scriptsHome = () => {
+    showElem('#loading');
+    hideElem('#app');
+    hideElem('#content');
+
+    ipcRenderer.send('login-succeed');
+
+    window.addEventListener('beforeunload', () => {
+      const totalRev = parseInt(getElemText('#rev_counter'));
+      const totalSen = parseInt(getElemText('#sen_counter'));
+      ipcRenderer.send('windows-closed', [totalRev, totalSen]);
+    });
+
+    ipcRenderer.on('fatal-error', (event, error) => {
+      hideElem('#loading');
+      hideElem('#app');
+      hideElem('#content');
+      const timeout = 86400000;
+      const errMsg =
+        'UPDATE DIBUTUHKAN ATAU TERJADI ERROR : ' +
+        error +
+        '<br /> HARAP HUBUNGI CSA COMPUTER SUPPORT';
+      const errCatch = alertShow(errMsg, 'danger');
+      appendElem('#alertContainer', errCatch);
+      alertDismiss(timeout, 'danger');
+    });
+
+    ipcRenderer.on('error', (event, error) => {
+      const timeout = error.code === 'ENOENT' ? 100000 : 80000;
+      const errMsg =
+        error.code === 'ENOENT'
+          ? error.code + ' : TIDAK DITEMUKAN ENTITAS FILE PENYIMPANAN JSON - ' + error.path || ' '
+          : error.code;
+      const errCatch = alertShow(errMsg, 'danger');
+      appendElem('#alertContainer', errCatch);
+      alertDismiss(timeout, 'danger');
+    });
+
+    ipcRenderer.on('logs', (event, msg) => {
+      if (getChildElemCount > 6) setElemHTML('.logs', '');
+      else appendElem('.logs', `<p>${msg}</p>`);
+    });
+
+    ipcRenderer.on('qr', (event, qr) => {
+      setElemAttr('#qrcode', 'src', qr);
+      hideElem('#loading');
+      showElem('#app');
+      hideElem('#content');
+    });
+
+    ipcRenderer.on('ready', (event, data) => {
+      hideElem('#loading');
+      hideElem('#app');
+      showElem('#content');
+      setElemHTML('.logs', '');
+      setElemText('#rev_counter', data.totalReceived);
+      setElemText('#sen_counter', data.totalSent);
+    });
+
+    ipcRenderer.on('authenticated', (event, args) => {
+      window.setInterval(() => {
+        const lastTime = getElemText('#onlineFromHidden');
+        const duration = durationGenerator(lastTime);
+        setElemText('#onlineDuration', duration);
+      }, 1000);
+      const authCatch = alertShow('Anda telah terhubung dengan WACSA API.', 'success');
+      appendElem('#alertContainer', authCatch);
+      alertDismiss(5000, 'success');
+    });
+
+    ipcRenderer.on('disconnected_client', async function () {
+      const totalRev = parseInt(getElemText('#rev_counter'));
+      const totalSen = parseInt(getElemText('#sen_counter'));
+      await ipcRenderer.send('client_disconnected', [totalRev, totalSen]);
+      setElemText('#rev_counter', 0);
+      setElemText('#sen_counter', 0);
+      showElem('#loading');
+      hideElem('#app');
+      hideElem('#content');
+      const disconnectedCatch = alertShow(
+        'Whatsapp Telah Terputus, Silahkan Scan QR Code Kembali',
+        'danger'
+      );
+      appendElem('#alertContainer', disconnectedCatch);
+      alertDismiss(15000, 'danger');
+    });
+
+    ipcRenderer.on('received_message', function (data) {
+      const currentReceived = parseInt(getElemText('#rev_counter')) + data;
+      setElemText('#rev_counter', currentReceived);
+    });
+
+    ipcRenderer.on('sent_message', function (data) {
+      const currentSent = parseInt(getElemText('#sen_counter')) + data;
+      setElemText('#sen_counter', currentSent);
+    });
+
+    ipcRenderer.on('info', (event, { pNumber, pName, pPlatform, pVersion }) => {
+      setElemText('#onlineNumber', pNumber);
+      setElemText('#onlineName', pName);
+      setElemText('#onlinePlatform', pPlatform);
+      setElemText('#onlineVersion', pVersion);
+      setElemText('#onlineFrom', dateTimeGeneratorClient());
+      setElemText('#onlineFromHidden', new Date());
+    });
+  };
+
   wrapperElm.innerHTML = pageHome;
-  scriptsHome(ipcRenderer, socket);
+  scriptsHome();
 };
 
 module.exports = { home };

@@ -1,12 +1,7 @@
 const { auth } = require('../middleware');
+const errorLogger = require('../logger/error-logger');
 
-module.exports = function (
-  appExpress,
-  errorLogger,
-  receivedFileHandle,
-  sentFileHandle,
-  statsFileHandle
-) {
+function logRoutes(appExpress, receivedFileHandle, sentFileHandle, statsFileHandle, win) {
   appExpress.use(function (req, res, next) {
     res.header('Access-Control-Allow-Headers', 'x-access-token, Origin, Content-Type, Accept');
     next();
@@ -34,7 +29,7 @@ module.exports = function (
           message: 'Data Log Pesan Masuk Sedang Ada Pengaksesan',
         });
       } else {
-        errorLogger(error);
+        errorLogger(error, win);
         return res.status(500).json({
           status: false,
           message: error,
@@ -54,7 +49,7 @@ module.exports = function (
         });
       });
     } catch (error) {
-      if (error.code == 'ENOENT') {
+      if (error.code === 'ENOENT') {
         res.status(404).json({
           status: false,
           message: 'Data Log Pesan Keluar Masih Kosong',
@@ -65,7 +60,7 @@ module.exports = function (
           message: 'Data Log Pesan Keluar Sedang Ada Pengaksesan',
         });
       } else {
-        errorLogger(error);
+        errorLogger(error, win);
         return res.status(500).json({
           status: false,
           message: error,
@@ -85,7 +80,7 @@ module.exports = function (
         });
       });
     } catch (error) {
-      if (error.code == 'ENOENT') {
+      if (error.code === 'ENOENT') {
         res.status(404).json({
           status: false,
           message: 'Data Log Statistik Masih Kosong',
@@ -96,7 +91,7 @@ module.exports = function (
           message: 'Data Log Statistik Sedang Ada Pengaksesan',
         });
       } else {
-        errorLogger(error);
+        errorLogger(error, win);
         return res.status(500).json({
           status: false,
           message: error,
@@ -104,4 +99,6 @@ module.exports = function (
       }
     }
   });
-};
+}
+
+module.exports = logRoutes;
