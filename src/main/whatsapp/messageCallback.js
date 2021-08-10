@@ -14,4 +14,4 @@ function messageCallback({ url, options, retry, interval }) {
   });
 }
 
-module.exports = { messageCallback };
+module.exports = messageCallback;

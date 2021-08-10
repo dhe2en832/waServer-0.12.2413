@@ -157,7 +157,7 @@ function waListener(
     }
   });
 
-  waClient.on('message_ack', async (msg, ack) => {
+  waClient.on('message_ack', async (status_msg, ack) => {
     try {
       const valAck = {
         '-1': 'Error',
@@ -177,7 +177,7 @@ function waListener(
               [config.CallbackAPI.AuthKeyName || undefined]:
                 config.CallbackAPI.AuthKeyValue || undefined,
             },
-            body: JSON.stringify({ status: valAck[ack], message: msg }, null, 2),
+            body: JSON.stringify({ status: valAck[ack], message: status_msg }, null, 2),
           },
           retry: config.CallbackAPI.RetryFailure || 3,
           interval: config.CallbackAPI.IntervalFailure || 1,
