@@ -21,7 +21,7 @@ function statsLogger(STATS_FILE_PATH, win) {
         return statsGenerate();
       }
     }
-    errorLogger(error, win);
+    errorLogger('statsLogger #generateStats' + error, win);
   }
 }
 

@@ -67,8 +67,6 @@ SERVER.listen(PORT, function () {
         try {
           await new Promise((resolve, reject) => {
             statsFileHandle(resolve, reject, arg, 'post', 1);
-          }).catch((error) => {
-            errorLogger(error, win);
           });
         } catch (error) {
           if (error.code === 'ENOENT') {
@@ -76,7 +74,7 @@ SERVER.listen(PORT, function () {
             config.FolderLog.StatisticLogFolder = rootPath;
             fs.writeFileSync(path.resolve(rootPath + '/wacsa.ini'), ini.stringify(config));
           }
-          errorLogger(error, win);
+          errorLogger('electron #saveStatsAfterClientDisconnected' + error, win);
         }
       });
 
@@ -84,32 +82,28 @@ SERVER.listen(PORT, function () {
         try {
           await new Promise((resolve, reject) => {
             statsFileHandle(resolve, reject, arg, 'post', 1);
-          })
-            .then((success) => {
-              if (success) {
-                BrowserWindow.getAllWindows().forEach(() => {
-                  app.quit();
-                });
-                win = null;
-                createWindow = null;
-              }
-            })
-            .catch((error) => {
-              errorLogger(error, win);
-            });
+          }).then((success) => {
+            if (success) {
+              BrowserWindow.getAllWindows().forEach(() => {
+                app.quit();
+              });
+              win = null;
+              createWindow = null;
+            }
+          });
         } catch (error) {
           if (error.code === 'ENOENT') {
             STATS_FILE_PATH = path.resolve(rootPath + '/wacsa-statistic.json');
             config.FolderLog.StatisticLogFolder = rootPath;
             fs.writeFileSync(path.resolve(rootPath + '/wacsa.ini'), ini.stringify(config));
           }
-          errorLogger(error, win);
+          errorLogger('electron #saveStatsAfterWindowsClosed' + error, win);
         }
       });
 
       ipcMain.on('login-succeed', (event, arg) => {
         waClient.initialize().catch((error) => {
-          errorLogger(error, win);
+          errorLogger('electron #waClientInitializeAfterLoginSucceed' + error, win);
           win.webContents.send('fatal-error', error);
         });
       });
@@ -139,7 +133,7 @@ SERVER.listen(PORT, function () {
       dialog.showMessageBox(null, options).then(() => app.quit());
     };
   } else {
-    errorLogger(error, win);
+    errorLogger('electron #serverInitialize' + error, win);
   }
 });
 

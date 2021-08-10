@@ -14,9 +14,9 @@ const {
 
 const home = (ipcRenderer, wrapperElm) => {
   const pageHome = `
-  <div class="container-fluid">
+  <div class="container-fluid px-3">
       <!-- loading -->
-      <div id="loading" class="row mt-5">
+      <div id="loading" class="row mt-5 pt-4">
          <div class="col-12 text-center mt-5">
             <h5>Mohon Tunggu <br />Sedang Memuat QR Code...</h5>
             <div class="mt-4 spinner-grow text-primary" role="status"></div>
@@ -47,19 +47,19 @@ const home = (ipcRenderer, wrapperElm) => {
          <div class="col-md-12 my-2">
             <h5>Koneksi</h5>
             <div class="card p-4">
-               <p>Nomor Whatsapp : <span class="float-right" id="onlineNumber"></span></p>
-               <p>Pengguna Whatsapp : <span class="float-right" id="onlineName"></span></p>
-               <p>Platform Perangkat : <span class="float-right" id="onlinePlatform"></span></p>
-               <p>Versi Whatsapp di Perangkat : <span class="float-right" id="onlineVersion"></span></p>
-               <p>Aktif Dari : <span class="float-right" id="onlineFrom"></span><span class="d-none" id="onlineFromHidden"></span></p>
-               <p>Durasi : <span class="float-right" id="onlineDuration"></span></p>
+               <p>Nomor Whatsapp : <span class="float-end" id="onlineNumber"></span></p>
+               <p>Pengguna Whatsapp : <span class="float-end" id="onlineName"></span></p>
+               <p>Platform Perangkat : <span class="float-end" id="onlinePlatform"></span></p>
+               <p>Versi Whatsapp di Perangkat : <span class="float-end" id="onlineVersion"></span></p>
+               <p>Aktif Dari : <span class="float-end" id="onlineFrom"></span><span class="d-none" id="onlineFromHidden"></span></p>
+               <p>Durasi : <span class="float-end" id="onlineDuration"></span></p>
             </div>
          </div>
          <div class="col-md-12 my-2">
             <h5>Aktivitas</h5>
             <div class="card p-4">
-               <p>Pesan Masuk : <span class="float-right" id="rev_counter">0</span></p>
-               <p>Pesan Keluar : <span class="float-right" id="sen_counter">0</span></p>
+               <p>Pesan Masuk : <span class="float-end" id="rev_counter">0</span></p>
+               <p>Pesan Keluar : <span class="float-end" id="sen_counter">0</span></p>
             </div>
          </div>
       </div>
@@ -135,7 +135,7 @@ const home = (ipcRenderer, wrapperElm) => {
       alertDismiss(5000, 'success');
     });
 
-    ipcRenderer.on('disconnected_client', async function () {
+    ipcRenderer.on('disconnected_client', async (event, args) => {
       const totalRev = parseInt(getElemText('#rev_counter'));
       const totalSen = parseInt(getElemText('#sen_counter'));
       await ipcRenderer.send('client_disconnected', [totalRev, totalSen]);
@@ -152,12 +152,12 @@ const home = (ipcRenderer, wrapperElm) => {
       alertDismiss(15000, 'danger');
     });
 
-    ipcRenderer.on('received_message', function (data) {
+    ipcRenderer.on('received_message', (event, data) => {
       const currentReceived = parseInt(getElemText('#rev_counter')) + data;
       setElemText('#rev_counter', currentReceived);
     });
 
-    ipcRenderer.on('sent_message', function (data) {
+    ipcRenderer.on('sent_message', (event, data) => {
       const currentSent = parseInt(getElemText('#sen_counter')) + data;
       setElemText('#sen_counter', currentSent);
     });

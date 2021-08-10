@@ -72,7 +72,7 @@ function waListener(
     sessionCfg = session;
     fs.writeFile(SESSION_FILE_PATH, JSON.stringify(session), function (error) {
       if (error) {
-        errorLogger(error, win);
+        errorLogger('waClient #savingSessionAfterAuthenticated' + error, win);
       }
     });
   });
@@ -92,16 +92,16 @@ function waListener(
         const qmMedia = await qmMsg.downloadMedia();
         qmObj = {
           qm_body: qmMsg,
-          qm_base64: msgCheck(qmMsg.hasMedia, qmMedia.data),
-          qm_filename: msgCheck(qmMsg.hasMedia, qmMedia.filename),
-          qm_mimetype: msgCheck(qmMsg.hasMedia, qmMedia.mimetype),
+          qm_base64: msgCheck(qmMsg.hasMedia, qmMsg.hasMedia && qmMedia.data),
+          qm_filename: msgCheck(qmMsg.hasMedia, qmMsg.hasMedia && qmMedia.filename),
+          qm_mimetype: msgCheck(qmMsg.hasMedia, qmMsg.hasMedia && qmMedia.mimetype),
         };
       }
       receive_msg.mediaKey = receive_msg.mediaKey || '-';
       receive_msg.quotedMsg = receive_msg.hasQuotedMsg ? qmObj : '-';
-      receive_msg.base64 = msgCheck(receive_msg.hasMedia, media.data);
-      receive_msg.filename = msgCheck(receive_msg.hasMedia, media.filename);
-      receive_msg.mimetype = msgCheck(receive_msg.hasMedia, media.mimetype);
+      receive_msg.base64 = msgCheck(receive_msg.hasMedia, receive_msg.hasMedia && media.data);
+      receive_msg.filename = msgCheck(receive_msg.hasMedia, receive_msg.hasMedia && media.filename);
+      receive_msg.mimetype = msgCheck(receive_msg.hasMedia, receive_msg.hasMedia && media.mimetype);
       await new Promise((resolve, reject) => {
         receivedFileHandle(resolve, reject, receive_msg, 'post', 1);
       }).then(async (success) => {
@@ -121,7 +121,7 @@ function waListener(
               },
               retry: config.CallbackAPI.RetryFailure || 3,
               interval: config.CallbackAPI.IntervalFailure || 1,
-            }).catch((error) => errorLogger(error, win));
+            }).catch((error) => errorLogger('waClient #incomingMessageCallback' + error, win));
           }
         }
       });
@@ -131,7 +131,7 @@ function waListener(
         config.FolderLog.ReceivedLogFolder = rootPath;
         fs.writeFileSync(path.resolve(rootPath + '/wacsa.ini'), ini.stringify(config));
       }
-      errorLogger(error, win);
+      errorLogger('waClient #receivedMessage' + error, win);
     }
   });
 
@@ -153,7 +153,7 @@ function waListener(
         config.FolderLog.SentLogFolder = rootPath;
         fs.writeFileSync(path.resolve(rootPath + '/wacsa.ini'), ini.stringify(config));
       }
-      errorLogger(error, win);
+      errorLogger('waClient #sentMessage' + error, win);
     }
   });
 
@@ -184,7 +184,7 @@ function waListener(
         });
       }
     } catch (error) {
-      errorLogger(error, win);
+      errorLogger('waClient #statusMessageCallback' + error, win);
     }
   });
 
@@ -194,18 +194,18 @@ function waListener(
     if (fs.existsSync(SESSION_FILE_PATH)) {
       fs.unlink(SESSION_FILE_PATH, (error) => {
         if (error) {
-          errorLogger(error, win);
+          errorLogger('waClient #unlinkSessionFile' + error, win);
         }
         waClient
           .destroy()
           .then(() => {
             waClient.initialize().catch((error) => {
-              errorLogger(error, win);
+              errorLogger('waClient #waClientInitializeAfterDisconnected' + error, win);
               win.webContents.send('fatal-error', err);
             });
           })
           .catch((error) => {
-            errorLogger(error, win);
+            errorLogger('waClient #destroySessionAfterDisconnected' + error, win);
           });
       });
     }

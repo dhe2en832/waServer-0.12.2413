@@ -11,7 +11,7 @@ const corsOptions = {
   origin:
     allowedDomains === '*'
       ? '*'
-      : function (origin, callback) {
+      : (origin, callback) => {
           if (allowedDomains.indexOf(origin) !== -1) {
             callback(null, true);
           } else {

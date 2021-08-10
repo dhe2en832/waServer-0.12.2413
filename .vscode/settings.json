@@ -1,11 +1,5 @@
 {
-    "launch": {
-
-        "configurations": [],
-        "compounds": []
-    },
-
-    "emmet.includeLanguages": {
-        "javscript" : "html"
-    }
+  "emmet.includeLanguages": {
+    "javscript": "html"
+  }
 }
