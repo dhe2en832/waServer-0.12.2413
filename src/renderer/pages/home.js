@@ -172,10 +172,10 @@ function home(ipcRenderer, wrapperElm) {
     });
 
     ipcRenderer.on('connected', () => {
-      alertDismiss(1000, 'warning');
+      alertDismiss(500, 'warning');
       const connectedCatch = alertShow('Koneksi Online, WACSA API sudah bisa digunakan.', 'success');
       appendElem('#alertContainer', connectedCatch);
-      alertDismiss(6000, 'success');
+      alertDismiss(8000, 'success');
     });
 
     ipcRenderer.on('timeout', () => {
