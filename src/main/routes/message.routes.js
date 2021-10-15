@@ -11,6 +11,8 @@ function messageRoutes(appExpress, waClient, win) {
       return state;
     } catch (error) {
       errorLogger('messageRoutes #clientState' + error, win);
+      const state = 'ERROR';
+      return state;
     }
   };
   const checkRegisteredNumber = async function (number) {
