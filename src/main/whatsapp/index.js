@@ -25,16 +25,16 @@ const waClient = new Client({
       '--no-sandbox',
       '--disable-setuid-sandbox',
       '--disable-dev-shm-usage',
+      '--disable-web-security',
       '--disable-accelerated-2d-canvas',
       '--no-first-run',
       '--no-zygote',
       '--disable-gpu',
+      '--shm-size=3gb'
     ],
   },
   session: sessionCfg,
   restartOnAuthFail: true,
-  takeoverOnConflict: true,
-  takeoverTimeoutMs: 1000,
 });
 
 function waListener(
