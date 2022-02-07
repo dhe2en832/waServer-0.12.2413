@@ -1,6 +1,6 @@
 {
   "name": "wacsa",
-  "version": "0.9.3r4",
+  "version": "0.9.3r5",
   "description": "Whatsapp API Powered By CSA Computer",
   "main": "src/app.js",
   "dependencies": {
@@ -13,7 +13,7 @@
     "ini": "^2.0.0",
     "node-fetch": "2.6.5",
     "qrcode": "^1.4.4",
-    "whatsapp-web.js": "^1.15.4"
+    "whatsapp-web.js": "^1.15.5"
   },
   "devDependencies": {
     "electron": "12.2.2",
@@ -34,7 +34,7 @@
   "build": {
     "asar": true,
     "appId": "id.csacomputer.wacsa",
-    "copyright": "Copyright © 2021 CSA Computer x Whatsapp",
+    "copyright": "Copyright © 2022 CSA Computer x Whatsapp",
     "productName": "wacsa",
     "win": {
       "target": "nsis",

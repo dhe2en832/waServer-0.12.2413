@@ -22,7 +22,7 @@ function login(ipcRenderer, wrapperElm, base_url, home) {
                   <div class="d-grid mx-auto mt-4">
                     <button id="submitLogin" class="btn btn-sm btn-primary" type="submit">Submit</button>
                   </div>
-                  <p class="mt-5 mb-3 text-muted small">Copyright &copy; 2021 CSA Computer. All Right Reserved</p>
+                  <p class="mt-5 mb-3 text-muted small">Copyright &copy; ${new Date().getFullYear()} CSA Computer. All Right Reserved</p>
               </form>
             </div>
         </div>
