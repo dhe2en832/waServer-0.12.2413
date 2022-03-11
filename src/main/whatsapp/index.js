@@ -33,9 +33,9 @@ const waClient = new Client({
       '--shm-size=3gb'
     ],
   },
-  restartOnAuthFail: true,
   authStrategy: new LegacySessionAuth({
     session: sessionCfg,
+    restartOnAuthFail: true,
   })
 });
 
