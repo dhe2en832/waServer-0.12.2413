@@ -2,6 +2,7 @@ node_modules
 dist
 dist_backup
 environment
+session
 backup_wacsa_old.ini
 backup_wacsa.ini
 wacsa-error.log
