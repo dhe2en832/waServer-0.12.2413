@@ -1,21 +1,16 @@
 const fs = require('fs');
 const path = require('path');
-const { Client, LegacySessionAuth } = require('whatsapp-web.js');
+const { Client, LocalAuth } = require('whatsapp-web.js');
 const qrcode = require('qrcode');
 
-const { config, rootPath } = require('../system');
+const { config, rootPath, versionTag } = require('../system');
 const errorLogger = require('../logger/error-logger');
 const statsLogger = require('../logger/stats-logger');
 const messageCallback = require('./messageCallback');
 const chromePath =
   config.ServerOptions.chrome || 'C:/Program Files/Google/Chrome/Application/chrome.exe';
 const attachmentSave = config.ServerOptions.attachment || true;
-const SESSION_FILE_PATH = path.resolve(rootPath + '/wacsa-session.json');
-
-let sessionCfg;
-if (fs.existsSync(SESSION_FILE_PATH)) {
-  sessionCfg = require(SESSION_FILE_PATH);
-}
+const SESSION_FILE_PATH = rootPath + '/session';
 
 const waClient = new Client({
   puppeteer: {
@@ -24,21 +19,13 @@ const waClient = new Client({
     args: [
       '--no-sandbox',
       '--disable-setuid-sandbox',
-      '--disable-dev-shm-usage',
-      '--disable-web-security',
-      '--disable-accelerated-2d-canvas',
-      '--no-first-run',
-      '--no-zygote',
-      '--disable-gpu',
-      '--shm-size=3gb'
     ],
   },
-  takeoverOnConflict: false,
-  takeoverTimeoutMs: 0,
-  authTimeoutMs: 0,
-  authStrategy: new LegacySessionAuth({
-    session: sessionCfg,
-    restartOnAuthFail: true,
+  takeoverOnConflict: true,
+  takeoverTimeoutMs: 60000,
+  authTimeoutMs: 60000,
+  authStrategy: new LocalAuth({
+    dataPath: rootPath
   })
 });
 
@@ -48,43 +35,38 @@ function waListener(
   STATS_FILE_PATH,
   receivedFileHandle,
   sentFileHandle,
-  win
+  win,
+  listenerClient,
 ) {
   win.webContents.send('logs', 'Sedang Menghubungkan...');
 
-  waClient.on('qr', (qr) => {
+  listenerClient.on('qr', (qr) => {
     qrcode.toDataURL(qr, (err, url) => {
-      win.webContents.send('qr', url);
+      win.webContents.send('qr_client', url);
       win.webContents.send('logs', 'Whatsapp QR Code diterima, Mohon discan untuk melanjutkan!');
     });
   });
 
-  waClient.on('ready', async () => {
+  listenerClient.on('ready', async () => {
     const stats = await statsLogger(STATS_FILE_PATH, win);
-    win.webContents.send('info', [
-      waClient.info.wid.user,
-      waClient.info.pushname,
-      waClient.info.platform,
-      waClient.info.phone.wa_version,
+    win.webContents.send('info_client', [
+      listenerClient.info.wid.user,
+      listenerClient.info.pushname,
+      listenerClient.info.platform,
+      versionTag
     ]);
-    win.webContents.send('ready', stats);
+    win.webContents.send('ready_client', stats);
   });
 
-  waClient.on('authenticated', (session) => {
-    win.webContents.send('authenticated');
-    sessionCfg = session;
-    fs.writeFile(SESSION_FILE_PATH, JSON.stringify(session), function (error) {
-      if (error) {
-        errorLogger('waClient #savingSessionAfterAuthenticated' + error, win);
-      }
-    });
+  listenerClient.on('authenticated', () => {
+    win.webContents.send('authenticated_client');
   });
 
-  waClient.on('auth_failure', function () {
-    win.webContents.send('logs', 'Otentikasi gagal, sedang memuat ulang...');
+  listenerClient.on('auth_failure', (message) => {
+    win.webContents.send('logs', message);
   });
 
-  waClient.on('message', async (receive_msg) => {
+  listenerClient.on('message', async (receive_msg) => {
     try {
       const msgCheck = (condition, data) =>
         attachmentSave === true ? (condition === false ? '-' : data) : 'disabled';
@@ -111,20 +93,24 @@ function waListener(
         if (success) {
           win.webContents.send('received_message', 1);
           if (config.CallbackAPI.MessageIncomingEndpoint !== '') {
-            await messageCallback({
-              url: config.CallbackAPI.MessageIncomingEndpoint,
-              options: {
-                method: 'post',
-                headers: {
-                  'Content-Type': 'application/json',
-                  [config.CallbackAPI.AuthKey || undefined]:
-                    config.CallbackAPI.AuthValue || undefined,
+            try {
+              await messageCallback({
+                url: config.CallbackAPI.MessageIncomingEndpoint,
+                options: {
+                  method: 'post',
+                  headers: {
+                    'Content-Type': 'application/json',
+                    [config.CallbackAPI.AuthKey || undefined]:
+                      config.CallbackAPI.AuthValue || undefined,
+                  },
+                  body: JSON.stringify({ status: 'Incoming', message: receive_msg }, null, 2),
                 },
-                body: JSON.stringify({ status: 'Incoming', message: receive_msg }, null, 2),
-              },
-              retry: config.CallbackAPI.RetryFailure || 3,
-              interval: config.CallbackAPI.IntervalFailure || 1,
-            }).catch((error) => errorLogger('waClient #incomingMessageCallback' + error, win));
+                retry: config.CallbackAPI.RetryFailure || 3,
+                interval: config.CallbackAPI.IntervalFailure || 1,
+              });
+            } catch (error) {
+              await errorLogger('listenerClient #incomingMessageCallback' + error, win)
+            }
           }
         }
       });
@@ -134,11 +120,11 @@ function waListener(
         config.FolderLog.ReceivedLogFolder = rootPath;
         fs.writeFileSync(path.resolve(rootPath + '/wacsa.ini'), ini.stringify(config));
       }
-      errorLogger('waClient #receivedMessage' + error, win);
+      await errorLogger('listenerClient #receivedMessage' + error, win);
     }
   });
 
-  waClient.on('message_create', async (send_msg) => {
+  listenerClient.on('message_create', async (send_msg) => {
     try {
       if (send_msg.fromMe) {
         send_msg.mediaKey = send_msg.mediaKey || '-';
@@ -156,11 +142,11 @@ function waListener(
         config.FolderLog.SentLogFolder = rootPath;
         fs.writeFileSync(path.resolve(rootPath + '/wacsa.ini'), ini.stringify(config));
       }
-      errorLogger('waClient #sentMessage' + error, win);
+      await errorLogger('listenerClient #sentMessage' + error, win);
     }
   });
 
-  waClient.on('message_ack', async (status_msg, ack) => {
+  listenerClient.on('message_ack', async (status_msg, ack) => {
     try {
       const valAck = {
         '-1': 'Error',
@@ -187,44 +173,53 @@ function waListener(
         });
       }
     } catch (error) {
-      errorLogger('waClient #statusMessageCallback' + error, win);
+      await errorLogger('listenerClient #statusMessageCallback' + error, win);
     }
   });
 
-  waClient.on('change_state', (newState) => {
+  listenerClient.on('change_state', (newState) => {
     if (newState === 'TIMEOUT') {
-      win.webContents.send('timeout');
+      win.webContents.send('timeout_client');
     }
     if (newState === 'CONNECTED') {
-      win.webContents.send('connected');
+      win.webContents.send('connected_client');
     }
   });
 
-  waClient.on('disconnected', (reason) => {
+  listenerClient.on('disconnected', async (reason) => {
     win.webContents.send('disconnected_client');
     win.webContents.send('logs', 'Whatsapp telah terputus! Error : ' + reason);
-    if (fs.existsSync(SESSION_FILE_PATH)) {
-      fs.unlink(SESSION_FILE_PATH, (error) => {
-        if (error) {
-          errorLogger('waClient #unlinkSessionFile' + error, win);
-        }
-        waClient
-          .destroy()
-          .then(() => {
-            waClient.initialize().catch((error) => {
-              errorLogger('waClient #waClientInitializeAfterDisconnected' + error, win);
-              win.webContents.send('fatal-error', err);
-            });
-          })
-          .catch((error) => {
-            errorLogger('waClient #destroySessionAfterDisconnected' + error, win);
-          });
+    listenerClient
+      .destroy()
+      .then(() => {
+        listenerClient.initialize().catch(async (error) => {
+          await errorLogger('waClient #waClientInitializeAfterDisconnected' + error, win);
+          win.webContents.send('fatal-error', err);
+        });
+      })
+      .catch(async (error) => {
+        await errorLogger('waClient #destroySessionAfterDisconnected' + error, win);
       });
-    }
-  });
+  })
 }
+
+async function waState(listenerClient, currentWindow) {
+  try {
+    setTimeout(() => {
+      return "TIMEOUT-FROM-WACSA"
+    }, ((config.ApiTimeout || 60) * 1000));
+    const state = await listenerClient.getState();
+    return state;
+  } catch (error) {
+    await errorLogger('whatsapp #waState' + error, currentWindow);
+    const state = 'ERROR';
+    return state;
+  }
+};
 
 module.exports = {
   waClient,
   waListener,
+  waState,
+  SESSION_FILE_PATH,
 };
