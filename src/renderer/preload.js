@@ -1,8 +1,7 @@
 const path = require('path');
 const url = require('url');
 const customTitlebar = require('custom-electron-titlebar');
-const { contextBridge } = require('electron/renderer');
-const { ipcRenderer } = require('electron/renderer');
+const { contextBridge, ipcRenderer } = require('electron/renderer');
 const { home } = require('./pages/home');
 const { login } = require('./pages/login');
 
@@ -28,17 +27,17 @@ contextBridge.exposeInMainWorld('WACSA_UI', {
     const wrapperElm = document.querySelector('main');
     const alertOnlineStatus = () => {
       navigator.onLine
-        ? console.log('Anda sedang terkoneksi internet...')
+        ? null
         : window.alert(
-            'Anda sedang offline. Silahkan koneksikan internet anda dan buka ulang aplikasi ini..!'
-          );
+          'Anda sedang offline. Silahkan koneksikan internet anda dan buka ulang aplikasi ini..!'
+        );
     };
-    ipcRenderer.on('dom-loaded', (event, port) => {
+    ipcRenderer.on('dom-loaded', (event, { port, version}) => {
       window.addEventListener('online', alertOnlineStatus());
       window.addEventListener('offline', alertOnlineStatus());
       const base_url = 'http://localhost:' + port;
-      if (JSON.parse(localStorage.getItem('sessionID'))) home(ipcRenderer, wrapperElm);
-      else login(ipcRenderer, wrapperElm, base_url, home);
+      if (JSON.parse(localStorage.getItem('sessionID'))) home(ipcRenderer, wrapperElm, version);
+      else login(ipcRenderer, wrapperElm, base_url, version, home);
     });
   },
 });
