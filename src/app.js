@@ -1,10 +1,10 @@
-const fs = require('path');
+const fs = require('fs');
 const path = require('path');
 const ini = require('ini');
 const { app, BrowserWindow, ipcMain, dialog } = require('electron/main');
-const { config, rootPath } = require('./main/system');
+const { config, rootPath, versionTag } = require('./main/system');
 const { appExpress, SERVER, PORT } = require('./main/server');
-const { waClient, waListener } = require('./main/whatsapp');
+const { waClient, waListener, waState, SESSION_FILE_PATH } = require('./main/whatsapp');
 let { RECEIVED_FILE_PATH } = require('./main/mutex/received-file');
 let { SENT_FILE_PATH } = require('./main/mutex/sent-file');
 let { STATS_FILE_PATH } = require('./main/mutex/stats-file');
@@ -14,6 +14,7 @@ const { statsFileHandle } = require('./main/mutex/stats-file');
 const authRoutes = require('./main/routes/auth.routes');
 const logRoutes = require('./main/routes/log.routes');
 const messageRoutes = require('./main/routes/message.routes');
+const errorLogger = require('./main/logger/error-logger')
 let win,
   createWindow = null;
 
@@ -46,7 +47,7 @@ SERVER.listen(PORT, function () {
       });
       win.loadFile(path.join(__dirname, '/index.html'));
       win.webContents.once('dom-ready', () => {
-        win.webContents.send('dom-loaded', PORT);
+        win.webContents.send('dom-loaded', { port: PORT, version: versionTag });
       });
       win.focus();
 
@@ -60,7 +61,8 @@ SERVER.listen(PORT, function () {
         STATS_FILE_PATH,
         receivedFileHandle,
         sentFileHandle,
-        win
+        win,
+        waClient
       );
 
       ipcMain.on('client_disconnected', async (event, arg) => {
@@ -74,42 +76,45 @@ SERVER.listen(PORT, function () {
             config.FolderLog.StatisticLogFolder = rootPath;
             fs.writeFileSync(path.resolve(rootPath + '/wacsa.ini'), ini.stringify(config));
           }
-          errorLogger('electron #saveStatsAfterClientDisconnected' + error, win);
+          await errorLogger('electron #saveStatsAfterClientDisconnected' + error, win);
         }
       });
 
       ipcMain.on('windows-closed', async (event, arg) => {
         try {
-          await new Promise((resolve, reject) => {
-            statsFileHandle(resolve, reject, arg, 'post', 1);
-          }).then((success) => {
-            if (success) {
-              BrowserWindow.getAllWindows().forEach(() => {
-                app.quit();
-              });
-              win = null;
-              createWindow = null;
-            }
-          });
+          const isConnectedClient = await waState(waClient, win);
+          await waClient.destroy();
+          if (isConnectedClient === "CONNECTED") {
+            await new Promise((resolve, reject) => {
+              statsFileHandle(resolve, reject, arg, 'post', 1);
+            })
+          } else {
+            await fs.rm(SESSION_FILE_PATH, { recursive: true }, async (error) => {
+              if (error) {
+                await errorLogger('electron #deleteSessionUnactivedSession' + error, win)
+              }
+              return;
+            });
+          }
         } catch (error) {
           if (error.code === 'ENOENT') {
             STATS_FILE_PATH = path.resolve(rootPath + '/wacsa-statistic.json');
             config.FolderLog.StatisticLogFolder = rootPath;
             fs.writeFileSync(path.resolve(rootPath + '/wacsa.ini'), ini.stringify(config));
           }
-          errorLogger('electron #saveStatsAfterWindowsClosed' + error, win);
-        }
+          await errorLogger('electron #saveStatsAfterWindowsClosed' + error, win);
+        };
       });
 
       ipcMain.on('login-succeed', (event, arg) => {
-        waClient.initialize().catch((error) => {
-          errorLogger('electron #waClientInitializeAfterLoginSucceed' + error, win);
+        waClient.initialize().catch(async (error) => {
+          await errorLogger('electron #waClientInitializeAfterLoginSucceed' + error, win);
           win.webContents.send('fatal-error', error);
         });
       });
     };
   }
-}).on('error', (error) => {
+}).on('error', async (error) => {
   if (error.code === 'EADDRINUSE') {
     createWindow = (win) => {
       win = new BrowserWindow({
@@ -128,20 +133,17 @@ SERVER.listen(PORT, function () {
         defaultId: 0,
         title: 'Perhatian',
         message: 'Aplikasi WACSA ini sudah dibuka atau sedang berjalan di user lain.',
-        detail: 'Jendela akan tertutup otomatis',
+        detail: 'Jendela ini akan tertutup otomatis',
       };
       dialog.showMessageBox(null, options).then(() => app.quit());
     };
   } else {
-    errorLogger('electron #serverInitialize' + error, win);
+    await errorLogger('electron #serverInitialize' + error, win);
   }
 });
 
 app.whenReady().then(() => {
   createWindow(win);
-  app.on('activate', function () {
-    if (BrowserWindow.getAllWindows().length === 0) createWindow(win);
-  });
 });
 
 app.on('window-all-closed', function () {
