@@ -7,7 +7,8 @@ async function errorLogger(errMsg, win) {
     });
     return;
   } catch (error) {
-    win.webContents.send('error', error);
+    await win.webContents.send('error', error);
+    throw error;
   }
 }
 
