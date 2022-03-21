@@ -115,9 +115,8 @@ function home(ipcRenderer, wrapperElm, version) {
       hideElem('#content');
       const timeout = 86400000;
       const errMsg =
-        'UPDATE DIBUTUHKAN ATAU TERJADI ERROR : ' +
         error +
-        '<br /> HARAP HUBUNGI CSA COMPUTER SUPPORT';
+        '<br /> "HARAP HUBUNGI SUPPORT CSA COMPUTER';
       const errCatch = alertShow(errMsg, 'danger');
       appendElem('#alertContainer', errCatch);
       alertDismiss(timeout, 'danger');
