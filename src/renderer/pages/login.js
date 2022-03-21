@@ -2,8 +2,9 @@ const { alertShow, alertDismiss } = require('../../utils/alertGenerator');
 const path = require('path');
 const showSVG = path.join(__dirname, './../../images/show.svg');
 const hideSVG = path.join(__dirname, './../../images/hide.svg');
+const { setElemText } = require('../../utils/stylesGenerator');
 
-function login(ipcRenderer, wrapperElm, base_url, home) {
+function login(ipcRenderer, wrapperElm, base_url, version, home) {
   const pageLogin = `
     <div class="container-fluid">
       <div class="row">
@@ -14,7 +15,7 @@ function login(ipcRenderer, wrapperElm, base_url, home) {
               <form class="form-group">
                   <img class="mb-4" src="./images/icon.ico" alt="CSA-Logo" width="72" height="72" />
                   <h1 class="h3 mb-4 font-weight-normal">Login Prompt</h1>
-                  <input type="email" id="inputEmail" class="form-control" placeholder="Email" required autofocus />
+                  <input type="email" id="inputEmail" class="form-control mb-2" placeholder="Email" required autofocus />
                   <div class="input-group" id="showHidePassword">
                     <input class="form-control" type="password" id="inputPassword" placeholder="Password" required />
                     <span class="input-group-text text-decoration-none"><img src="${hideSVG}" class="hidePassword" aria-hidden="true"></img></span>
@@ -22,7 +23,8 @@ function login(ipcRenderer, wrapperElm, base_url, home) {
                   <div class="d-grid mx-auto mt-4">
                     <button id="submitLogin" class="btn btn-sm btn-primary" type="submit">Submit</button>
                   </div>
-                  <p class="mt-5 mb-3 text-muted small">Copyright &copy; ${new Date().getFullYear()} CSA Computer. All Right Reserved</p>
+                  <p class="text-muted fst-italic font-smaller p-0 m-0 mt-4">WACSA v<span id="versionTagLogin"></span></p>
+                  <p class="text-muted small p-0 m-0">Copyright &copy; ${new Date().getFullYear()} CSA Computer. All Right Reserved</p>
               </form>
             </div>
         </div>
@@ -35,6 +37,7 @@ function login(ipcRenderer, wrapperElm, base_url, home) {
   `;
 
   const scriptsLogin = () => {
+    setElemText('#versionTagLogin', version);
     document.querySelector('#showHidePassword span').addEventListener('click', (e) => {
       e.preventDefault();
       const showHideBtn = e.currentTarget.firstElementChild;
@@ -50,7 +53,7 @@ function login(ipcRenderer, wrapperElm, base_url, home) {
         showHideBtn.parentNode.parentNode.firstElementChild.setAttribute('type', 'password');
       }
     });
-    document.querySelector('#submitLogin').addEventListener('click', async (e) => {
+    document.querySelector('#submitLogin').addEventListener('click', (e) => {
       e.preventDefault();
       const alertContainer = document.querySelector('#alertContainer');
       const alertTimeout = 3000;
@@ -77,7 +80,7 @@ function login(ipcRenderer, wrapperElm, base_url, home) {
               alertContainer.innerHTML = alertShow(resJson.response, 'success');
               alertDismiss(alertTimeout, 'success');
               localStorage.setItem('sessionID', Date.now());
-              home(ipcRenderer, wrapperElm);
+              home(ipcRenderer, wrapperElm, version);
             } else {
               alertContainer.innerHTML = alertShow(resJson.message, 'danger');
               alertDismiss(alertTimeout, 'danger');
