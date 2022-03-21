@@ -29,7 +29,7 @@ function logRoutes(appExpress, receivedFileHandle, sentFileHandle, statsFileHand
           message: 'Data Log Pesan Masuk Sedang Ada Pengaksesan',
         });
       } else {
-        errorLogger('logRoutes #receivedLog' + error, win);
+        await errorLogger('logRoutes #receivedLog' + error, win);
         return res.status(500).json({
           status: false,
           message: error,
@@ -60,7 +60,7 @@ function logRoutes(appExpress, receivedFileHandle, sentFileHandle, statsFileHand
           message: 'Data Log Pesan Keluar Sedang Ada Pengaksesan',
         });
       } else {
-        errorLogger('logRoutes #sentLog' + error, win);
+        await errorLogger('logRoutes #sentLog' + error, win);
         return res.status(500).json({
           status: false,
           message: error,
@@ -91,7 +91,7 @@ function logRoutes(appExpress, receivedFileHandle, sentFileHandle, statsFileHand
           message: 'Data Log Statistik Sedang Ada Pengaksesan',
         });
       } else {
-        errorLogger('logRoutes #statisticLog' + error, win);
+        await errorLogger('logRoutes #statisticLog' + error, win);
         return res.status(500).json({
           status: false,
           message: error,
