@@ -1,4 +1,4 @@
-const { dateTimeGeneratorClient } = require('../../utils/dateTimeGenerator');
+const { dateTimeGeneratorClient, dateTimeGeneratorLog } = require('../../utils/dateTimeGenerator');
 const { durationGenerator } = require('../../utils/durationGenerator');
 const { alertShow, alertDismiss } = require('../../utils/alertGenerator');
 const {
@@ -12,26 +12,49 @@ const {
   appendElem,
 } = require('../../utils/stylesGenerator');
 
-function home(ipcRenderer, wrapperElm) {
+function home(ipcRenderer, wrapperElm, version) {
   const pageHome = `
   <div class="container-fluid px-3">
       <!-- loading -->
-      <div id="loading" class="row mt-5 pt-4">
-         <div class="col-12 text-center mt-5">
-            <h5>Mohon Tunggu <br />Sedang Memuat QR Code...</h5>
-            <div class="mt-4 spinner-grow text-primary" role="status"></div>
+      <div id="loading" class="mt-3 pt-4">
+         <div class="text-center mt-3 d-flex flex-column justify-content-center">
+            <p class="h4">Mohon Tunggu <br />Sedang Memuat QR Code</p>
+            <p class="fw-lighter text-muted font-smaller p-0 m-0">Jangan tutup aplikasi WACSA, proses ini membutuhkan waktu beberapa menit...</p>
+            <div class="d-flex justify-content-center">
+              <div class="mt-4 spinner-border text-primary spinner-custom" role="status">
+                <span class="visually-hidden">Loading...</span>
+                <div class="spinner-grow text-info border-light" role="status"></div>
+                <div class="spinner-grow spinner-grow-sm text-light" role="status"></div>
+              </div>
+            </div>
+         </div>
+         <div class="fixed-bottom bg-light pt-3 px-3">
+            <div class="d-flex fw-lighter font-smaller justify-content-between">
+              <div class="d-flex">
+                <p class="me-2 text-muted">Versi WACSA:</p>
+                <p id="versionTagLoad"></p>
+              </div>
+              <div class="d-flex">
+                <p class="me-2 text-muted">Waktu Berlalu:</p>
+                <p id="loadingCounter"></p>
+              </div>
+            </div>
          </div>
       </div>
 
       <!-- app -->
       <div id="app" class="row">
-         <div class="col-md-12 text-center">
-            <h5>&nbsp;</h5>
-            <h1>Whatsapp API</h1>
-            <p>Powered by CSA Computer</p>
-            <img src="" alt="Loading Whatsapp QR Code" id="qrcode" />
-            <h3>Logs:</h3>
-            <ul class="list-unstyled logs"></ul>
+         <div class="col-md-12 d-flex flex-column p-3">
+            <div class="d-flex flex-column text-center">
+              <p class="h3 p-0 m-0">WACSA</p>
+              <p id="versionTagQR" class="h5 fw-lighter font-small p-0 m-0"></p>
+            </div>
+            <div class="d-flex flex-column justify-content-center text-center">
+                <img class="img-custom mx-auto my-2" src="" alt="Loading Whatsapp QR Code" id="qrcode" />
+                <p class="fw-lighter font-smaller text-info border border-info p-1">Jika gagal saat scan QR Code dari Whatsapp pada perangkat Android/IOS Anda, lakukan restart WACSA terlebih dahulu.</p>
+            </div>
+            <p class="h5 p-0 m-0">Logs:</p>
+            <div class="d-flex flex-column justify-content-center logs log-custom text-muted overflow-auto"></div>
          </div>
       </div>
 
@@ -44,20 +67,20 @@ function home(ipcRenderer, wrapperElm) {
 
       <!-- content -->
       <div id="content" class="row">
-         <div class="col-md-12 my-2">
+         <div class="col-md-12">
             <h5>Koneksi</h5>
-            <div class="card p-4">
+            <div class="card pt-3 pb-2 px-3">
                <p>Nomor Whatsapp : <span class="float-end" id="onlineNumber"></span></p>
                <p>Pengguna Whatsapp : <span class="float-end" id="onlineName"></span></p>
                <p>Platform Perangkat : <span class="float-end" id="onlinePlatform"></span></p>
-               <p>Versi Whatsapp di Perangkat : <span class="float-end" id="onlineVersion"></span></p>
-               <p>Aktif Dari : <span class="float-end" id="onlineFrom"></span><span class="d-none" id="onlineFromHidden"></span></p>
+               <p>Versi WACSA: <span class="float-end" id="onlineVersion"></span></p>
+               <p>Aktif Dari : <span class="float-end" id="onlineFrom"></span></p>
                <p>Durasi : <span class="float-end" id="onlineDuration"></span></p>
             </div>
          </div>
          <div class="col-md-12 my-2">
             <h5>Aktivitas</h5>
-            <div class="card p-4">
+            <div class="card pt-3 pb-2 px-3">
                <p>Pesan Masuk : <span class="float-end" id="rev_counter">0</span></p>
                <p>Pesan Keluar : <span class="float-end" id="sen_counter">0</span></p>
             </div>
@@ -69,14 +92,22 @@ function home(ipcRenderer, wrapperElm) {
     showElem('#loading');
     hideElem('#app');
     hideElem('#content');
+    setElemText("#versionTagLoad", version);
 
-    ipcRenderer.send('login-succeed');
+    const loggedTime = new Date();
+    const loadCounter = () => {
+      const duration = durationGenerator(loggedTime);
+      setElemText("#loadingCounter", duration);
+    }
+    const loadInterval = setInterval(loadCounter, 1000);
 
     window.addEventListener('beforeunload', () => {
       const totalRev = parseInt(getElemText('#rev_counter'));
       const totalSen = parseInt(getElemText('#sen_counter'));
       ipcRenderer.send('windows-closed', [totalRev, totalSen]);
     });
+
+    ipcRenderer.send('login-succeed');
 
     ipcRenderer.on('fatal-error', (event, error) => {
       hideElem('#loading');
@@ -104,18 +135,20 @@ function home(ipcRenderer, wrapperElm) {
     });
 
     ipcRenderer.on('logs', (event, msg) => {
-      if (getChildElemCount('.logs') > 4) setElemHTML('.logs', '');
-      appendElem('.logs', `<p>${msg}</p>`);
+      if (getChildElemCount('.logs') > 99) setElemHTML('.logs', '');
+      appendElem('.logs', `<p class="fw-lighter font-x-small p-0 m-0">${dateTimeGeneratorLog()} - ${msg}</p>`);
     });
 
-    ipcRenderer.on('qr', (event, qr) => {
+    ipcRenderer.on('qr_client', (event, qr) => {
+      clearInterval(loadInterval);
       setElemAttr('#qrcode', 'src', qr);
       hideElem('#loading');
       showElem('#app');
+      setElemText("#versionTagQR", version);
       hideElem('#content');
     });
 
-    ipcRenderer.on('ready', (event, data) => {
+    ipcRenderer.on('ready_client', (event, data) => {
       hideElem('#loading');
       hideElem('#app');
       showElem('#content');
@@ -124,10 +157,10 @@ function home(ipcRenderer, wrapperElm) {
       setElemText('#sen_counter', data.totalSent);
     });
 
-    ipcRenderer.on('authenticated', (event, args) => {
+    ipcRenderer.on('authenticated_client', (event, args) => {
+      const lastTimeOnline = new Date();
       window.setInterval(() => {
-        const lastTime = getElemText('#onlineFromHidden');
-        const duration = durationGenerator(lastTime);
+        const duration = durationGenerator(lastTimeOnline);
         setElemText('#onlineDuration', duration);
       }, 1000);
       const authCatch = alertShow('Anda telah terhubung dengan WACSA API.', 'success');
@@ -162,23 +195,22 @@ function home(ipcRenderer, wrapperElm) {
       setElemText('#sen_counter', currentSent);
     });
 
-    ipcRenderer.on('info', (event, [pNumber, pName, pPlatform, pVersion]) => {
+    ipcRenderer.on('info_client', (event, [pNumber, pName, pPlatform, pVersion]) => {
       setElemText('#onlineNumber', pNumber);
       setElemText('#onlineName', pName);
       setElemText('#onlinePlatform', pPlatform);
       setElemText('#onlineVersion', pVersion);
       setElemText('#onlineFrom', dateTimeGeneratorClient());
-      setElemText('#onlineFromHidden', new Date());
     });
 
-    ipcRenderer.on('connected', () => {
+    ipcRenderer.on('connected_client', () => {
       alertDismiss(500, 'warning');
       const connectedCatch = alertShow('Koneksi Online, WACSA API sudah bisa digunakan.', 'success');
       appendElem('#alertContainer', connectedCatch);
       alertDismiss(8000, 'success');
     });
 
-    ipcRenderer.on('timeout', () => {
+    ipcRenderer.on('timeout_client', () => {
       const timeoutCatch = alertShow(
         'Koneksi Offline, periksa koneksi pada Whatsapp di device Anda.',
         'warning'
