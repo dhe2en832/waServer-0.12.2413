@@ -83,17 +83,17 @@ SERVER.listen(PORT, function () {
       ipcMain.on('windows-closed', async (event, arg) => {
         try {
           const isConnectedClient = await waState(waClient, win);
-          await waClient.destroy();
           if (isConnectedClient === "CONNECTED") {
+            await waClient.destroy();
             await new Promise((resolve, reject) => {
               statsFileHandle(resolve, reject, arg, 'post', 1);
             })
           } else {
+            await waClient.destroy();
             await fs.rm(SESSION_FILE_PATH, { recursive: true }, async (error) => {
               if (error) {
                 await errorLogger('electron #deleteSessionUnactivedSession' + error, win)
               }
-              return;
             });
           }
         } catch (error) {
@@ -106,11 +106,13 @@ SERVER.listen(PORT, function () {
         };
       });
 
-      ipcMain.on('login-succeed', (event, arg) => {
-        waClient.initialize().catch(async (error) => {
+      ipcMain.on('login-succeed', async (event, arg) => {
+        try {
+          await waClient.initialize();
+        } catch (error) {
           await errorLogger('electron #waClientInitializeAfterLoginSucceed' + error, win);
           win.webContents.send('fatal-error', error);
-        });
+        }
       });
     };
   }
@@ -150,7 +152,7 @@ app.on('window-all-closed', function () {
   if (process.platform !== 'darwin') app.quit();
 });
 
-app.on('before-quit', () => {
+app.on('before-quit', async () => {
   win = null;
   createWindow = null;
 });
