@@ -7,9 +7,8 @@ body {
   height: 4rem;
 }
 
-.img-custom {
-  height: 264px;
-  width: 264px;
+.log-custom {
+  max-height: 120px;
 }
 
 .font-smaller {
@@ -22,8 +21,4 @@ body {
 
 .font-x-small {
   font-size: x-small;
-}
-
-.log-custom {
-  max-height: 120px;
 }
