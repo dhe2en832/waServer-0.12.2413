@@ -4,7 +4,7 @@ const ini = require('ini');
 const { app, BrowserWindow, ipcMain, dialog } = require('electron/main');
 const { config, rootPath, versionTag } = require('./main/system');
 const { appExpress, SERVER, PORT } = require('./main/server');
-const { waClient, waListener, waState, SESSION_FILE_PATH } = require('./main/whatsapp');
+const { waClient, waListener, waWorker } = require('./main/whatsapp');
 let { RECEIVED_FILE_PATH } = require('./main/mutex/received-file');
 let { SENT_FILE_PATH } = require('./main/mutex/sent-file');
 let { STATS_FILE_PATH } = require('./main/mutex/stats-file');
@@ -80,34 +80,18 @@ SERVER.listen(PORT, function () {
         }
       });
 
-      ipcMain.on('windows-closed', async (event, arg) => {
-        try {
-          const isConnectedClient = await waState(waClient, win);
-          if (isConnectedClient === "CONNECTED") {
-            await waClient.destroy();
-            await new Promise((resolve, reject) => {
-              statsFileHandle(resolve, reject, arg, 'post', 1);
-            })
-          } else {
-            await waClient.destroy();
-            await fs.rm(SESSION_FILE_PATH, { recursive: true }, async (error) => {
-              if (error) {
-                await errorLogger('electron #deleteSessionUnactivedSession' + error, win)
-              }
-            });
-          }
-        } catch (error) {
-          if (error.code === 'ENOENT') {
-            STATS_FILE_PATH = path.resolve(rootPath + '/wacsa-statistic.json');
-            config.FolderLog.StatisticLogFolder = rootPath;
-            fs.writeFileSync(path.resolve(rootPath + '/wacsa.ini'), ini.stringify(config));
-          }
-          await errorLogger('electron #saveStatsAfterWindowsClosed' + error, win);
-        };
+      ipcMain.on('windows-closed', async () => {
+        await waClient.destroy();
+        BrowserWindow.getAllWindows().forEach(() => {
+          app.quit();
+        });
       });
 
       ipcMain.on('login-succeed', async (event, arg) => {
         try {
+          if (fs.existsSync(waWorker)) {
+            fs.rmdirSync(waWorker, { recursive: true })
+          }
           await waClient.initialize();
         } catch (error) {
           await errorLogger('electron #waClientInitializeAfterLoginSucceed' + error, win);
@@ -146,13 +130,24 @@ SERVER.listen(PORT, function () {
 
 app.whenReady().then(() => {
   createWindow(win);
+
+  app.on('activate', () => {
+    if (BrowserWindow.getAllWindows().length === 0) {
+      createWindow();
+    }
+  });
 });
 
-app.on('window-all-closed', function () {
+app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit();
 });
 
 app.on('before-quit', async () => {
-  win = null;
-  createWindow = null;
+  try {
+    await waClient.destroy();
+    win = null;
+    createWindow = null;
+  } catch (error) {
+    await errorLogger("electron #beforeQuit" + error);
+  }
 });
