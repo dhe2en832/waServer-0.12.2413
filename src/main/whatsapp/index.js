@@ -10,32 +10,33 @@ const messageCallback = require('./messageCallback');
 const chromePath =
   config.ServerOptions.chrome || 'C:/Program Files/Google/Chrome/Application/chrome.exe';
 const attachmentSave = config.ServerOptions.attachment || true;
-const SESSION_FILE_PATH = rootPath + '/session';
 
+const authStrategy = new LocalAuth({
+  dataPath: rootPath,
+});
+const waWorker = `${authStrategy.dataPath}/session/Default/Service Worker`;
 const waClient = new Client({
   puppeteer: {
     executablePath: chromePath,
     headless: true,
     args: [
-      '--no-sandbox',
-      '--disable-setuid-sandbox',
-      '--disable-software-rasterizer',
-      '--disable-dev-shm-usage',
-      '--disable-web-security',
       '--disable-accelerated-2d-canvas',
-      '--no-first-run',
-      '--no-zygote',
+      '--disable-dev-shm-usage',
       '--disable-gpu',
-      '--shm-size=3gb'
-    ],
+      '--disable-software-rasterizer',
+      '--disable-setuid-sandbox',
+      '--no-first-run',
+      '--no-sandbox',
+      '--no-zygote'
+    ]
   },
   userAgent: 'Mozilla/5.0 (Windows NT 10.0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/99.0.4844.82 Safari/537.36',
   takeoverOnConflict: true,
-  takeoverTimeoutMs: 60000,
+  takeoverTimeoutMs: 10,
   authTimeoutMs: 0,
-  authStrategy: new LocalAuth({
-    dataPath: rootPath
-  })
+  qrMaxRetries: 0,
+  ffmpegPath: 'ffmpeg',
+  authStrategy,
 });
 
 function waListener(
@@ -45,37 +46,37 @@ function waListener(
   receivedFileHandle,
   sentFileHandle,
   win,
-  listenerClient,
+  listenClient,
 ) {
   win.webContents.send('logs', 'Sedang Menghubungkan...');
 
-  listenerClient.on('qr', (qr) => {
+  listenClient.on('qr', (qr) => {
     qrcode.toDataURL(qr, (err, url) => {
       win.webContents.send('qr_client', url);
       win.webContents.send('logs', 'Whatsapp QR Code diterima, Mohon discan untuk melanjutkan!');
     });
   });
 
-  listenerClient.on('ready', async () => {
+  listenClient.on('ready', async () => {
     const stats = await statsLogger(STATS_FILE_PATH, win);
     win.webContents.send('info_client', [
-      listenerClient.info.wid.user,
-      listenerClient.info.pushname,
-      listenerClient.info.platform,
+      listenClient.info.wid.user,
+      listenClient.info.pushname,
+      listenClient.info.platform,
       versionTag
     ]);
     win.webContents.send('ready_client', stats);
   });
 
-  listenerClient.on('authenticated', () => {
+  listenClient.on('authenticated', () => {
     win.webContents.send('authenticated_client');
   });
 
-  listenerClient.on('auth_failure', (message) => {
+  listenClient.on('auth_failure', (message) => {
     win.webContents.send('logs', message);
   });
 
-  listenerClient.on('message', async (receive_msg) => {
+  listenClient.on('message', async (receive_msg) => {
     try {
       const msgCheck = (condition, data) =>
         attachmentSave === true ? (condition === false ? '-' : data) : 'disabled';
@@ -118,7 +119,7 @@ function waListener(
                 interval: config.CallbackAPI.IntervalFailure || 1,
               });
             } catch (error) {
-              await errorLogger('listenerClient #incomingMessageCallback' + error, win)
+              await errorLogger('listenClient #incomingMessageCallback' + error, win)
             }
           }
         }
@@ -129,11 +130,11 @@ function waListener(
         config.FolderLog.ReceivedLogFolder = rootPath;
         fs.writeFileSync(path.resolve(rootPath + '/wacsa.ini'), ini.stringify(config));
       }
-      await errorLogger('listenerClient #receivedMessage' + error, win);
+      await errorLogger('listenClient #receivedMessage' + error, win);
     }
   });
 
-  listenerClient.on('message_create', async (send_msg) => {
+  listenClient.on('message_create', async (send_msg) => {
     try {
       if (send_msg.fromMe) {
         send_msg.mediaKey = send_msg.mediaKey || '-';
@@ -151,11 +152,11 @@ function waListener(
         config.FolderLog.SentLogFolder = rootPath;
         fs.writeFileSync(path.resolve(rootPath + '/wacsa.ini'), ini.stringify(config));
       }
-      await errorLogger('listenerClient #sentMessage' + error, win);
+      await errorLogger('listenClient #sentMessage' + error, win);
     }
   });
 
-  listenerClient.on('message_ack', async (status_msg, ack) => {
+  listenClient.on('message_ack', async (status_msg, ack) => {
     try {
       const valAck = {
         '-1': 'Error',
@@ -182,11 +183,11 @@ function waListener(
         });
       }
     } catch (error) {
-      await errorLogger('listenerClient #statusMessageCallback' + error, win);
+      await errorLogger('listenClient #statusMessageCallback' + error, win);
     }
   });
 
-  listenerClient.on('change_state', (newState) => {
+  listenClient.on('change_state', (newState) => {
     if (newState === 'TIMEOUT') {
       win.webContents.send('timeout_client');
     }
@@ -195,36 +196,32 @@ function waListener(
     }
   });
 
-  listenerClient.on('disconnected', async (reason) => {
+  listenClient.on('disconnected', async (reason) => {
     try {
       win.webContents.send('disconnected_client');
       win.webContents.send('logs', 'Whatsapp telah terputus! Error : ' + reason);
-      await listenerClient.destroy();
-      await listenerClient.initialize();
+      await listenClient.destroy();
+      if (fs.existsSync(waWorker)) {
+        fs.rmdirSync(waWorker, { recursive: true })
+      }
+      await listenClient.initialize();
     } catch (error) {
-      await errorLogger('waClient #destroyAndOpenSessionAfterDisconnected' + error, win);
-      win.webContents.send('fatal-error', err);
+      await errorLogger('listenClient #destroyAndOpenSessionAfterDisconnected' + error, win);
+      win.webContents.send('fatal-error', error);
     }
   });
 }
 
-async function waState(listenerClient, currentWindow) {
-  try {
-    setTimeout(() => {
-      return "TIMEOUT-FROM-WACSA"
-    }, ((config.ApiTimeout || 60) * 1000));
-    const state = await listenerClient.getState();
-    return state;
-  } catch (error) {
-    await errorLogger('whatsapp #waState' + error, currentWindow);
-    const state = 'ERROR';
-    return state;
-  }
+function waState(listenClient, currentWindow) {
+  return new Promise((resolve, reject) => {
+    setTimeout(() => reject(`TIMEOUT: WACSA call has exceeds ${config.API.WacsaTimeout || 30} sec.`), ((config.API.WacsaTimeout || 30) * 1000));
+    listenClient.getState().then((result) => resolve(result)).catch((error) => reject(error));
+  })
 };
 
 module.exports = {
   waClient,
   waListener,
   waState,
-  SESSION_FILE_PATH,
+  waWorker,
 };
