@@ -1,10 +1,7 @@
 const { alertShow, alertDismiss } = require('../../utils/alertGenerator');
-const path = require('path');
-const showSVG = path.join(__dirname, './../../images/show.svg');
-const hideSVG = path.join(__dirname, './../../images/hide.svg');
 const { setElemText } = require('../../utils/stylesGenerator');
 
-function login(ipcRenderer, wrapperElm, base_url, version, home) {
+function login(ipcRenderer, wrapperElm, base_url, version, icons, home) {
   const pageLogin = `
     <div class="container-fluid">
       <div class="row">
@@ -18,7 +15,7 @@ function login(ipcRenderer, wrapperElm, base_url, version, home) {
                   <input type="email" id="inputEmail" class="form-control mb-2" placeholder="Email" required autofocus />
                   <div class="input-group" id="showHidePassword">
                     <input class="form-control" type="password" id="inputPassword" placeholder="Password" required />
-                    <span class="input-group-text text-decoration-none"><img src="${hideSVG}" class="hidePassword" aria-hidden="true"></img></span>
+                    <span class="input-group-text text-decoration-none"><img src="${icons.hideSVG}" class="hidePassword" aria-hidden="true"></img></span>
                   </div>
                   <div class="d-grid mx-auto mt-4">
                     <button id="submitLogin" class="btn btn-sm btn-primary" type="submit">Submit</button>
@@ -44,12 +41,12 @@ function login(ipcRenderer, wrapperElm, base_url, version, home) {
       if (showHideBtn.classList.contains('hidePassword')) {
         showHideBtn.classList.remove('hidePassword');
         showHideBtn.classList.add('showPassword');
-        showHideBtn.setAttribute('src', showSVG);
+        showHideBtn.setAttribute('src', icons.showSVG);
         showHideBtn.parentNode.parentNode.firstElementChild.setAttribute('type', 'text');
       } else {
         showHideBtn.classList.remove('showPassword');
         showHideBtn.classList.add('hidePassword');
-        showHideBtn.setAttribute('src', hideSVG);
+        showHideBtn.setAttribute('src', icons.hideSVG);
         showHideBtn.parentNode.parentNode.firstElementChild.setAttribute('type', 'password');
       }
     });
