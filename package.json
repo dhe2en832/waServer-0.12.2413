@@ -1,6 +1,6 @@
 {
-  "name": "wacsa",
-  "version": "0.9.3-rc.17",
+  "name": "wacsa-md",
+  "version": "0.9.4",
   "description": "Whatsapp API, Powered By CSA Computer",
   "main": "src/app.js",
   "dependencies": {
@@ -13,7 +13,7 @@
     "ini": "^2.0.0",
     "node-fetch": "2.6.7",
     "qrcode": "1.5.0",
-    "whatsapp-web.js": "1.16.4"
+    "whatsapp-web.js": "1.16.5"
   },
   "devDependencies": {
     "electron": "12.2.2",
@@ -21,7 +21,7 @@
   },
   "scripts": {
     "start": "electron .",
-    "copy": "cp ./environment/ChromeSetup.exe dist/ && cp ./environment/README.md dist/",
+    "copy": "cp ./environment/ChromeSetup.exe dist/",
     "build-clean": "rm -rf dist_backup && mv dist dist_backup && electron-builder && npm run copy",
     "build": "electron-builder && npm run copy"
   },
@@ -54,13 +54,14 @@
     },
     "files": [
       "!**/.vscode/*",
-      "!**/session/*",
       "!**/backup/*",
       "!**/dist_backup/*",
       "!**/environment/*",
+      "!**/node_modules/*",
+      "!**/session/*",
       "!.gitignore",
-      "!backup_wacsa_old.ini",
       "!installer.nsh",
+      "!readme.md",
       "!wacsa-error.log",
       "!wacsa-received.json",
       "!wacsa-sent.json",
@@ -73,8 +74,8 @@
         "to": "."
       },
       {
-        "from": "./backup_wacsa.ini",
-        "to": "."
+        "from": "./wacsa.ini",
+        "to": "./backup_wacsa.ini"
       },
       {
         "from": "./environment/backup",
@@ -84,7 +85,7 @@
     "publish": [
       {
         "provider": "generic",
-        "url": "http://127.0.0.1/wacsa_update"
+        "url": "http://127.0.0.1/wacsa-updater"
       }
     ]
   }
