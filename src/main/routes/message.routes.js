@@ -25,7 +25,7 @@ function messageRoutes(appExpress, waClient, win) {
     [auth, body('number').notEmpty(), body('message').notEmpty()],
     async (req, res) => {
       try {
-        const isConnectedClient = await waState(waClient, win);
+        const isConnectedClient = await waState(waClient);
         if (isConnectedClient === 'CONNECTED') {
           const errors = validationResult(req).formatWith(({ msg }) => {
             return msg;
@@ -81,7 +81,7 @@ function messageRoutes(appExpress, waClient, win) {
 
   appExpress.post('/message/send-media', [auth, body('number').notEmpty()], async (req, res) => {
     try {
-      const isConnectedClient = await waState(waClient, win);
+      const isConnectedClient = await waState(waClient);
       if (isConnectedClient === 'CONNECTED') {
         const errors = validationResult(req).formatWith(({ msg }) => {
           return msg;
