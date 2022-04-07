@@ -9,7 +9,7 @@ const statsLogger = require('../logger/stats-logger');
 const messageCallback = require('./messageCallback');
 const chromePath =
   config.ServerOptions.chrome || 'C:/Program Files/Google/Chrome/Application/chrome.exe';
-const attachmentSave = config.ServerOptions.attachment || true;
+const attachmentSave = config.ServerOptions.attachment === false ? false : true;
 
 const authStrategy = new LocalAuth({
   dataPath: rootPath,
@@ -18,7 +18,7 @@ const waWorker = `${authStrategy.dataPath}/session/Default/Service Worker`;
 const waClient = new Client({
   puppeteer: {
     executablePath: chromePath,
-    headless: true,
+    headless: config.ServerOptions.headless === false ? false : true,
     args: [
       '--disable-accelerated-2d-canvas',
       '--disable-dev-shm-usage',
@@ -27,10 +27,12 @@ const waClient = new Client({
       '--disable-setuid-sandbox',
       '--no-first-run',
       '--no-sandbox',
-      '--no-zygote'
+      '--no-zygote',
+      `--window-position=${config.ServerOptions.winPos || "0,0"}`,
+      `--window-size=${config.ServerOptions.winSize || "800,600"}`,
     ]
   },
-  userAgent: 'Mozilla/5.0 (Windows NT 10.0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/99.0.4844.82 Safari/537.36',
+  userAgent: 'Mozilla/5.0 (Windows NT 10.0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/100.0.4896.75 Safari/537.36',
   takeoverOnConflict: true,
   takeoverTimeoutMs: 10,
   authTimeoutMs: 0,
@@ -212,9 +214,9 @@ function waListener(
   });
 }
 
-function waState(listenClient, currentWindow) {
+function waState(listenClient) {
   return new Promise((resolve, reject) => {
-    setTimeout(() => reject(`TIMEOUT: WACSA call has exceeds ${config.API.WacsaTimeout || 30} sec.`), ((config.API.WacsaTimeout || 30) * 1000));
+    setTimeout(() => reject(`TIMEOUT: WACSA call has exceeds ${config.ServerOptions.timeout || 30} sec.`), ((config.ServerOptions.timeout || 30) * 1000));
     listenClient.getState().then((result) => resolve(result)).catch((error) => reject(error));
   })
 };
