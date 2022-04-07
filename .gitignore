@@ -1,13 +1,11 @@
-node_modules
+backup
 dist
 dist_backup
 environment
+node_modules
 session
-backup_wacsa_old.ini
-backup_wacsa.ini
 wacsa-error.log
 wacsa-received.json
 wacsa-sent.json
 wacsa-session.json
 wacsa-statistic.json
-backup
