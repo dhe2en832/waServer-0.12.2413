@@ -1,6 +1,7 @@
 backup
 dist
 dist_backup
+docs
 environment
 node_modules
 session
