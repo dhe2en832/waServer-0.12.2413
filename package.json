@@ -1,6 +1,6 @@
 {
   "name": "wacsa",
-  "version": "0.11.55",
+  "version": "0.12.00",
   "description": "Whatsapp API, Powered By CSA Computer",
   "main": "src/app.js",
   "dependencies": {
@@ -14,7 +14,7 @@
     "ini": "^2.0.0",
     "node-fetch": "2.6.7",
     "qrcode": "1.5.0",
-    "whatsapp-web.js": "^1.19.5"
+    "whatsapp-web.js": "^1.20.0"
   },
   "devDependencies": {
     "electron": "12.2.2",
@@ -22,8 +22,9 @@
     "env-cmd": "^10.1.0"
   },
   "scripts": {
-    "start": "electron .",
-    "build": "rm -rf dist && electron-builder",
+    "makeCredentials": "node make-credentials.js",
+    "start": "yarn makeCredentials && electron .",
+    "build": "rm -rf dist && yarn makeCredentials && electron-builder",
     "copy": "cp ./environment/ChromeSetup.exe dist/",
     "dev": "env-cmd -f .env.origin yarn start",
     "prod-origin": "env-cmd -f .env.origin yarn build",
@@ -67,14 +68,17 @@
       "!**/environment/*",
       "!**/node_modules/*",
       "!**/session/*",
+      "!.env*",
       "!.gitignore",
       "!installer.nsh",
+      "!make-credentials.js",
       "!readme.md",
       "!wacsa-error.log",
       "!wacsa-received.json",
       "!wacsa-sent.json",
       "!wacsa-session.json",
-      "!wacsa-statistic.json"
+      "!wacsa-statistic.json",
+      "!yarn.lock"
     ],
     "extraFiles": [
       {

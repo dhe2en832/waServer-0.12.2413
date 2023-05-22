@@ -1,7 +1,7 @@
+const credentials = require("../../credentials.json");
+
 const auth = (req, res, next) => {
   let token = req.headers["x-access-token"];
-  const api_token = process.env.ACCESS_TOKEN;
-
   if (!token) {
     return res.status(403).send({
       status: false,
@@ -9,7 +9,7 @@ const auth = (req, res, next) => {
     });
   }
 
-  if (token === api_token) {
+  if (token === credentials.token) {
     next();
     return;
   } else {

@@ -10,3 +10,5 @@ wacsa-sent.json
 wacsa-session.json
 wacsa-statistic.json
 .env*
+make-credentials.js
+/src/credentials.json

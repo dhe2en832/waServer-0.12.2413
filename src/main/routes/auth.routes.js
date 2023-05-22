@@ -1,4 +1,5 @@
 const { body, validationResult } = require("express-validator");
+const credentials = require("../../credentials.json");
 
 function authRoutes(appExpress) {
   appExpress.post(
@@ -16,8 +17,8 @@ function authRoutes(appExpress) {
           });
         } else {
           if (
-            req.body.email === process.env.ACCESS_ID &&
-            req.body.password === process.env.ACCESS_PWD
+            req.body.email === credentials.id &&
+            req.body.password === credentials.password
           ) {
             return res.status(200).json({
               status: true,
