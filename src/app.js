@@ -65,7 +65,7 @@ SERVER.listen(PORT, function () {
         statsFileHandle,
         win
       );
-      messageRoutes(appExpress, waClient, win);
+      messageRoutes(appExpress, waClient, win, sentFileHandle, SENT_FILE_PATH);
 
       waListener(
         RECEIVED_FILE_PATH,
