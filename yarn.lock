@@ -1191,7 +1191,7 @@ find-up@^4.0.0, find-up@^4.1.0:
     locate-path "^5.0.0"
     path-exists "^4.0.0"
 
-fluent-ffmpeg@^2.1.2:
+fluent-ffmpeg@2.1.2:
   version "2.1.2"
   resolved "https://registry.yarnpkg.com/fluent-ffmpeg/-/fluent-ffmpeg-2.1.2.tgz#c952de2240f812ebda0aa8006d7776ee2acf7d74"
   integrity sha512-IZTB4kq5GK0DPp7sGQ0q/BWurGHffRtQQwVkiqDgeO6wYJLLV5ZhgNOQ65loZxxuPMKZKZcICCUnaGtlxBiR0Q==
@@ -1616,11 +1616,6 @@ jsonfile@^6.0.1:
   optionalDependencies:
     graceful-fs "^4.1.6"
 
-jsqr@^1.3.1:
-  version "1.4.0"
-  resolved "https://registry.yarnpkg.com/jsqr/-/jsqr-1.4.0.tgz#8efb8d0a7cc6863cb6d95116b9069123ce9eb2d1"
-  integrity sha512-dxLob7q65Xg2DvstYkRpkYtmKm2sPJ9oFhrhmudT1dZvNFFTlroai3AWSpLey/w5vMcLBXRgOJsbXpdN9HzU/A==
-
 keyv@^3.0.0:
   version "3.1.0"
   resolved "https://registry.yarnpkg.com/keyv/-/keyv-3.1.0.tgz#ecc228486f69991e49e9476485a5be1e8fc5c4d9"
@@ -1854,10 +1849,10 @@ node-fetch@^2.6.5:
   dependencies:
     whatwg-url "^5.0.0"
 
-node-webpmux@^3.1.0:
-  version "3.1.8"
-  resolved "https://registry.yarnpkg.com/node-webpmux/-/node-webpmux-3.1.8.tgz#6658d8387e356f39c783ff3accd18ec6a63b3eec"
-  integrity sha512-CKLYCAU4zlr/2+OVTRb6mcvqgTHYT0/UTAHEzpGny0pOaLDLHzDQXJkPCoghFSOG6ihNKQtZN4GHIJ9VQWhMiw==
+node-webpmux@3.1.0:
+  version "3.1.0"
+  resolved "https://registry.yarnpkg.com/node-webpmux/-/node-webpmux-3.1.0.tgz#f8fdde2d6c55a51ffd5f91e3b0c70daae963b8d4"
+  integrity sha512-0fBo2eDIxLBVyFLqLJwPxQAgwRnMhv/l8M8kKWRuFvPz+InrLh+AAt8faVLaOlO8bQBA7MPEt5o12nc9uHu21g==
 
 normalize-path@^3.0.0:
   version "3.0.0"
@@ -2648,17 +2643,16 @@ webidl-conversions@^3.0.0:
   resolved "https://registry.yarnpkg.com/webidl-conversions/-/webidl-conversions-3.0.1.tgz#24534275e2a7bc6be7bc86611cc16ae0a5654871"
   integrity sha512-2JAn3z8AR6rjK8Sm8orRC0h/bcl/DqL7tRPdGZ4I1CjdF+EaMLmYxBHyXuKL849eucPFhvBoxMsflfOb8kxaeQ==
 
-whatsapp-web.js@1.22.2-alpha.4:
-  version "1.22.2-alpha.4"
-  resolved "https://registry.yarnpkg.com/whatsapp-web.js/-/whatsapp-web.js-1.22.2-alpha.4.tgz#321ad6345f0a8a73a27efad3d7983257be072ee8"
-  integrity sha512-mogZOs1YVcoJITDd0BIEbBqwAyUjeFSIUMeEJpxC4MDCLROXTE0Dsx7Y1IveeyDGVBJB2nOF1OxljXtYtnU7Gw==
+whatsapp-web.js@1.23.1-alpha.5:
+  version "1.23.1-alpha.5"
+  resolved "https://registry.yarnpkg.com/whatsapp-web.js/-/whatsapp-web.js-1.23.1-alpha.5.tgz#75f0adcdc653542f7a56bc81c49c5c4a512a0556"
+  integrity sha512-eA2CWGZI4zmbFfX2buITZo/If31mzk/hVYGN07aDJublj4RxHCuGYiop4rouHH0e6HK9FX6Ak8Zp2Sr2BbTYcw==
   dependencies:
     "@pedroslopez/moduleraid" "^5.0.2"
-    fluent-ffmpeg "^2.1.2"
-    jsqr "^1.3.1"
+    fluent-ffmpeg "2.1.2"
     mime "^3.0.0"
     node-fetch "^2.6.5"
-    node-webpmux "^3.1.0"
+    node-webpmux "3.1.0"
     puppeteer "^13.0.0"
   optionalDependencies:
     archiver "^5.3.1"

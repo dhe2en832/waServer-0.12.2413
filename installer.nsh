@@ -8,7 +8,7 @@
 	StrCmp $0 "" proceed askForUninstall
 	askForUninstall:
 		; display info message and abort
-		MessageBox MB_OK|MB_ICONEXCLAMATION "Aplikasi wacsa sudah ter-install, mohon uninstall terlebih dahulu.$\r$\nPastikan data log sudah di-backup ke lokasi lain.$\r$\n$\r$\n$\r$\nCSA Computer - 2022"
+		MessageBox MB_OK|MB_ICONEXCLAMATION "Aplikasi wacsa sudah ter-install, mohon uninstall terlebih dahulu.$\r$\nPastikan data log sudah di-backup ke lokasi lain.$\r$\n$\r$\n$\r$\nCSA Computer - 2024"
 		Abort
 	proceed:
 !macroend
