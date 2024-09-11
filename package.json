@@ -64,6 +64,7 @@
       "!**/dist_backup/*",
       "!**/dist_bless/*",
       "!**/dist_complete/*",
+      "!**/.wwebjs_cache/*",
       "!**/docs/*",
       "!**/environment/*",
       "!**/node_modules/*",
