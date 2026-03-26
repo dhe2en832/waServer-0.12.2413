@@ -1,7 +1,8 @@
 const path = require('path');
 const url = require('url');
 const customTitlebar = require('custom-electron-titlebar');
-const { contextBridge, ipcRenderer } = require('electron/renderer');
+// const { contextBridge, ipcRenderer } = require('electron/renderer');
+const { contextBridge, ipcRenderer } = require('electron');
 const { home } = require('./pages/home');
 const { login } = require('./pages/login');
 const { updaterCustom } = require('./components/updaterCustom');

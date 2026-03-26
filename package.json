@@ -1,23 +1,24 @@
 {
   "name": "wacsa",
-  "version": "0.12.2411",
+  "version": "0.12.2413",
   "description": "Whatsapp API, Powered By CSA Computer",
   "main": "src/app.js",
   "dependencies": {
     "async-mutex": "^0.3.2",
     "cors": "^2.8.5",
-    "custom-electron-titlebar": "3.2.7",
-    "electron-updater": "^4.6.5",
+    "electron-updater": "^4.3.5",
     "express": "4.17.3",
     "express-fileupload": "1.3.1",
     "express-validator": "6.14.0",
     "ini": "^2.0.0",
     "node-fetch": "2.6.7",
+    "puppeteer-core": "19.2.2",
     "qrcode": "1.5.0",
-    "whatsapp-web.js": "^1.31.0"
+    "whatsapp-web.js": "^1.22.0"
   },
   "devDependencies": {
-    "electron": "12.2.2",
+    "custom-electron-titlebar": "^3.2.7",
+    "electron": "^12.2.2",
     "electron-builder": "22.11.3",
     "env-cmd": "^10.1.0"
   },
@@ -27,9 +28,12 @@
     "build": "rm -rf dist && yarn makeCredentials && electron-builder",
     "copy": "cp ./environment/ChromeSetup.exe dist/",
     "dev": "env-cmd -f .env.origin yarn start",
+    "dev:complete": "env-cmd -f .env.complete yarn start",
     "prod:origin": "env-cmd -f .env.origin yarn build",
     "prod:bless": "env-cmd -f .env.bless yarn build && yarn copy && rm -rf dist_bless && mv dist dist_bless",
-    "prod:complete": "env-cmd -f .env.complete yarn build && yarn copy && rm -rf dist_complete && mv dist dist_complete"
+    "prod:complete": "env-cmd -f .env.complete yarn build && yarn copy && rm -rf dist_complete && mv dist dist_complete",
+    "changelog": "node scripts/generate-changelog.cjs",
+    "changelog:monthly": "node scripts/generate-changelog.cjs --monthly"
   },
   "author": "CSA Computer",
   "license": "MIT",

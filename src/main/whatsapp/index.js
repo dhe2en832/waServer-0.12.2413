@@ -2,8 +2,14 @@ const fs = require("fs");
 const path = require("path");
 const { Client, LocalAuth } = require("whatsapp-web.js");
 const qrcode = require("qrcode");
+const ini = require("ini");
 
-const { config, rootPath, versionTag } = require("../system");
+// Read config directly
+const config = ini.parse(
+  fs.readFileSync(path.resolve(process.cwd() + "/wacsa.ini"), "utf-8")
+);
+const rootPath = process.cwd();
+const versionTag = "v0.12.2413";
 const errorLogger = require("../logger/error-logger");
 const statsLogger = require("../logger/stats-logger");
 const credentials = require("../../credentials.json");
@@ -273,7 +279,7 @@ function waState(listenClient) {
     setTimeout(
       () =>
         reject(
-          `TIMEOUT: WACSA call has exceeds ${
+`TIMEOUT: WACSA call has exceeds ${ // [20260326_102814]
             config.ServerOptions.timeout || 30
           } sec.`
         ),

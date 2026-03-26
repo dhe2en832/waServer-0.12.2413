@@ -1,14 +1,7 @@
 const fs = require("fs");
 const path = require("path");
 const ini = require("ini");
-const { app, BrowserWindow, ipcMain, dialog } = require("electron/main");
-const { autoUpdater } = require("electron-updater");
-const {
-  config,
-  rootPath,
-  versionTag,
-  updateListener,
-} = require("./main/system");
+const { app, BrowserWindow, ipcMain, dialog } = require("electron");
 const { appExpress, SERVER, PORT } = require("./main/server");
 const { waClient, waListener, waWorker } = require("./main/whatsapp");
 let { RECEIVED_FILE_PATH } = require("./main/mutex/received-file");
@@ -21,11 +14,33 @@ const authRoutes = require("./main/routes/auth.routes");
 const logRoutes = require("./main/routes/log.routes");
 const messageRoutes = require("./main/routes/message.routes");
 const errorLogger = require("./main/logger/error-logger");
+
+// Initialize electron-updater after app is ready
+let autoUpdater = null;
+try {
+  const updater = require("electron-updater");
+  autoUpdater = updater.autoUpdater;
+} catch (error) {
+  console.warn("electron-updater not available:", error.message);
+}
+
 let win,
-  createWindow = null;
+  createWindow = null,
+  config,
+  rootPath,
+  versionTag,
+  updateListener;
 
 SERVER.listen(PORT, function () {
-  console.log("WACSA running on *: " + PORT);
+console.log("WACSA running on *: " + PORT); // [20260326_102814]
+  
+  // Initialize system config after app is ready
+  const systemConfig = require("./main/system");
+  config = systemConfig.config;
+  rootPath = systemConfig.rootPath;
+  versionTag = systemConfig.versionTag;
+  updateListener = systemConfig.updateListener;
+  
   const gotTheLock = app.requestSingleInstanceLock();
   if (!gotTheLock) {
     app.quit();

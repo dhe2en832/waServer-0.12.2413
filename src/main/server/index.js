@@ -2,8 +2,14 @@ const express = require('express');
 const fileUpload = require('express-fileupload');
 const cors = require('cors');
 const http = require('http');
-const { app } = require('electron/main');
-const { config } = require('../system');
+const ini = require('ini');
+const fs = require('fs');
+const path = require('path');
+
+// Read config directly instead of requiring system module
+const config = ini.parse(
+  fs.readFileSync(path.resolve(process.cwd() + "/wacsa.ini"), "utf-8")
+);
 
 const appExpress = express();
 const allowedDomains = config.ServerOptions.cors || '*';
@@ -25,7 +31,7 @@ appExpress.use(express.json());
 appExpress.use(express.urlencoded({ extended: true }));
 appExpress.use(
   fileUpload({
-    debug: app.isPackaged === false ? true : false,
+    debug: process.env.NODE_ENV !== 'production',
   })
 );
 appExpress.disable('x-powered-by');

@@ -7,6 +7,9 @@ function authRoutes(appExpress) {
     [body("email").notEmpty(), body("password").notEmpty()],
     (req, res) => {
       try {
+        console.log("Login attempt:", req.body);
+        console.log("Credentials:", credentials);
+        
         const errors = validationResult(req).formatWith(({ msg }) => {
           return msg;
         });
@@ -20,11 +23,15 @@ function authRoutes(appExpress) {
             req.body.email === credentials.id &&
             req.body.password === credentials.password
           ) {
+            console.log("Login successful!");
             return res.status(200).json({
               status: true,
               response: "Email dan Password Cocok. Login Telah Berhasil",
             });
           } else {
+            console.log("Login failed - mismatch");
+            console.log("Email match:", req.body.email, "===", credentials.id);
+            console.log("Password match:", req.body.password, "===", credentials.password);
             return res.status(422).json({
               status: false,
               message: "Email atau Password Tidak Cocok",
@@ -32,6 +39,7 @@ function authRoutes(appExpress) {
           }
         }
       } catch (error) {
+        console.error("Auth error:", error);
         return res.status(500).json({
           status: false,
           response: error,

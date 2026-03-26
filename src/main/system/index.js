@@ -1,24 +1,16 @@
-const { app } = require("electron/main");
 const fs = require("fs");
 const path = require("path");
 const ini = require("ini");
 
-const rootPath =
-  app.isPackaged === false
-    ? app.getAppPath()
-    : path.dirname(app.getPath("exe"));
+// Use process.cwd() instead of electron app
+const rootPath = process.cwd();
 const config = ini.parse(
   fs.readFileSync(path.resolve(rootPath + "/wacsa.ini"), "utf-8")
 );
-const versionTag = app.getVersion();
+const versionTag = "v0.12.2413";
 
-const updateListener = (autoUpdater, ipcMain, win, errorLogger) => {
-  autoUpdater.autoDownload = false;
-
-  autoUpdater.on("error", async (error) => {
-    win.webContents.send("update_error", error);
-    await errorLogger("electron #autoUpdater" + error, win);
-  });
+const updateListener = (win) => {
+  // Update listener logic here
 
   autoUpdater.on("update-available", (info) => {
     win.webContents.send("update_available", info);
